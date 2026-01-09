@@ -7,7 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Plus, Search, Filter, Calendar, Clock, Ship, Factory, Warehouse, Building, BarChart3, Users, UserX, Menu, RefreshCw, Database, EyeOff, Loader2, LucideIcon } from 'lucide-react';
+import { 
+  ArrowLeft, Plus, Search, Filter, Calendar, Clock, Ship, Factory, Warehouse, Building, 
+  BarChart3, Users, UserX, Menu, RefreshCw, Database, EyeOff, Loader2, LucideIcon, 
+  Download, FileText 
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -26,6 +30,10 @@ interface Equipamento {
   grupo_operacao: string;
   hora_inicial: string | null;
   hora_final: string | null;
+  tag_generico?: string;
+  categoria_nome?: string;
+  local?: string;
+  horas_operando?: number;
 }
 
 interface Ajudante {
@@ -55,10 +63,30 @@ interface OperacaoCompleta {
   observacao: string | null;
   carga: string | null;
   navio_id: string | null;
+  centro_resultado?: string;
   navios: Navio | null;
   equipamentos: Equipamento[];
   ajudantes: Ajudante[];
   ausencias: Ausencia[];
+}
+
+interface RelatorioItem {
+  registro_id: string;
+  operacao: string;
+  carga_operacao: string;
+  data: string;
+  hora_inicial: string;
+  hora_final: string;
+  centro_resultado: string;
+  observacao: string;
+  equipamento_id: string;
+  tag: string;
+  tag_generico: string;
+  categoria_nome: string;
+  local: string;
+  motorista_operador: string;
+  horas_trabalhadas: number;
+  horas_operando: number;
 }
 
 // 2. Funções de Utilidade
@@ -126,329 +154,147 @@ const ordenarEquipamentosPorOperador = (equipamentos: Equipamento[]): Equipament
   );
 };
 
-// 3. Custom Hook
-const useTransporteData = () => {
-  const { toast } = useToast();
-  
-  // Estado Principal
-  const [operacaoSelecionada, setOperacaoSelecionada] = useState<string>('TODOS');
-  const [operacaoIdSelecionado, setOperacaoIdSelecionado] = useState<string | null>(null);
-  const [operacoes, setOperacoes] = useState<OperacaoCompleta[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [atualizando, setAtualizando] = useState(false);
-  
-  // Estado de Filtro
-  const [dataFiltro, setDataFiltro] = useState('');
-  const [horaInicialFiltro, setHoraInicialFiltro] = useState('Todos');
-  const [operadorFiltro, setOperadorFiltro] = useState('');
+// Componente ModalRelatorio
+interface ModalRelatorioProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onDownload: (dataInicial: string, dataFinal: string) => Promise<void>;
+  loading: boolean;
+}
 
-  // Estado de Filtro Aplicado
-  const [filtroAplicado, setFiltroAplicado] = useState({
-    data: '',
-    hora: 'Todos',
-    operador: '',
-  });
+const ModalRelatorio: React.FC<ModalRelatorioProps> = ({
+  isOpen,
+  onClose,
+  onDownload,
+  loading
+}) => {
+  const [dataInicial, setDataInicial] = useState('');
+  const [dataFinal, setDataFinal] = useState('');
 
-  // Função para buscar última data de forma segura
-  const buscarUltimaData = useCallback(async (): Promise<string> => {
-    try {
-      const hoje = new Date().toISOString().split('T')[0];
-      
-      const { data, error } = await supabase
-        .from('registro_operacoes')
-        .select('data')
-        .order('data', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Erro ao buscar última data:', error);
-        return hoje;
-      }
-
-      if (data?.data) {
-        const dataCorrigida = corrigirFusoHorarioData(data.data);
-        return dataCorrigida || hoje;
-      }
-      
-      return hoje;
-    } catch (error) {
-      console.error('Erro inesperado ao buscar última data:', error);
-      return new Date().toISOString().split('T')[0];
-    }
-  }, []);
-
-  // Inicializar dataFiltro com a data de hoje
+  // Inicializar com datas padrão (últimos 30 dias)
   useEffect(() => {
-    const inicializarData = async () => {
-      const ultimaData = await buscarUltimaData();
-      setDataFiltro(ultimaData);
-      setFiltroAplicado(prev => ({ ...prev, data: ultimaData }));
-    };
-    inicializarData();
-  }, [buscarUltimaData]);
-
-  const fetchOperacoes = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      let dataParaFiltrar = filtroAplicado.data;
+    if (isOpen) {
+      const hoje = new Date();
+      const umMesAtras = new Date();
+      umMesAtras.setDate(hoje.getDate() - 30);
       
-      // Se não tiver data filtro aplicada, usa a data atual
-      if (!dataParaFiltrar) {
-        dataParaFiltrar = new Date().toISOString().split('T')[0];
-        setFiltroAplicado(prev => ({ ...prev, data: dataParaFiltrar }));
-        setDataFiltro(dataParaFiltrar);
-      }
-
-      // Construir query base
-      let queryOperacoes = supabase
-        .from('registro_operacoes')
-        .select(`
-          *,
-          navios (
-            id,
-            nome_navio,
-            carga
-          )
-        `);
-
-      // Aplicar filtro de data se existir
-      if (dataParaFiltrar) {
-        queryOperacoes = queryOperacoes.eq('data', dataParaFiltrar);
-      }
-
-      // Executar query
-      const { data: operacoesData, error: operacoesError } = await queryOperacoes
-        .order('data', { ascending: false })
-        .order('hora_inicial', { ascending: false });
-
-      if (operacoesError) {
-        throw new Error(`Erro ao carregar operações: ${operacoesError.message}`);
-      }
-
-      // Se não houver dados, limpar e retornar
-      if (!operacoesData || operacoesData.length === 0) {
-        setOperacoes([]);
-        setLoading(false);
-        return;
-      }
-      
-      // Corrigir fuso horário das datas
-      const operacoesComFusoCorrigido = operacoesData.map(op => ({
-        ...op,
-        data: corrigirFusoHorarioData(op.data)
-      }));
-
-      // Buscar dados relacionados para cada operação
-      const operacoesCompletas = await Promise.all(
-        operacoesComFusoCorrigido.map(async (operacao) => {
-          try {
-            const [equipamentosResult, ajudantesResult, ausenciasResult] = await Promise.all([
-              supabase.from('equipamentos').select('*').eq('registro_operacoes_id', operacao.id),
-              supabase.from('ajudantes').select('*').eq('registro_operacoes_id', operacao.id),
-              supabase.from('ausencias').select('*').eq('registro_operacoes_id', operacao.id)
-            ]);
-
-            // Corrigir fusos horários
-            const ajudantesCorrigidos = ajudantesResult.data ? ajudantesResult.data.map(ajudante => ({
-              ...ajudante,
-              data: corrigirFusoHorarioData(ajudante.data)
-            })) : [];
-
-            const ausenciasCorrigidas = ausenciasResult.data ? ausenciasResult.data.map(ausencia => ({
-              ...ausencia,
-              data: corrigirFusoHorarioData(ausencia.data)
-            })) : [];
-
-            // Ordenar ajudantes e ausências alfabeticamente
-            const ajudantesOrdenados = ordenarPorNome(ajudantesCorrigidos);
-            const ausenciasOrdenadas = ordenarPorNome(ausenciasCorrigidas);
-            const equipamentosOrdenados = ordenarEquipamentosPorOperador(equipamentosResult.data || []);
-
-            return {
-              ...operacao,
-              equipamentos: equipamentosOrdenados,
-              ajudantes: ajudantesOrdenados,
-              ausencias: ausenciasOrdenadas,
-            } as OperacaoCompleta;
-          } catch (error) {
-            console.error(`Erro ao carregar dados para operação ${operacao.id}:`, error);
-            return {
-              ...operacao,
-              equipamentos: [],
-              ajudantes: [],
-              ausencias: [],
-            } as OperacaoCompleta;
-          }
-        })
-      );
-
-      setOperacoes(operacoesCompletas);
-      
-    } catch (e: any) {
-      console.error('Erro ao buscar operações:', e);
-      setError(e.message || 'Erro desconhecido ao carregar dados');
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar os dados. Tente novamente.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
+      setDataFinal(hoje.toISOString().split('T')[0]);
+      setDataInicial(umMesAtras.toISOString().split('T')[0]);
     }
-  }, [filtroAplicado.data, toast]);
+  }, [isOpen]);
 
-  // Efeito para carregar dados quando o filtro aplicado muda
-  useEffect(() => {
-    if (filtroAplicado.data) {
-      fetchOperacoes();
+  const handleDownload = async () => {
+    if (!dataInicial || !dataFinal) {
+      alert('Por favor, selecione ambas as datas.');
+      return;
     }
-  }, [filtroAplicado, fetchOperacoes]);
-
-  // Funções de Ação
-  const handleAtualizarDados = useCallback(async () => {
-    setAtualizando(true);
-    try {
-      await fetchOperacoes();
-      toast({
-        title: "Dados atualizados",
-        description: "Os dados foram atualizados com sucesso."
-      });
-    } catch (error) {
-      console.error('Erro ao atualizar dados:', error);
-    } finally {
-      setAtualizando(false);
+    
+    if (new Date(dataInicial) > new Date(dataFinal)) {
+      alert('A data inicial não pode ser maior que a data final.');
+      return;
     }
-  }, [fetchOperacoes, toast]);
-
-  const handleExecutarSQL = useCallback(async () => {
-    setAtualizando(true);
-    try {
-      const { error } = await supabase.rpc('executar_atualizacao_horarios');
-      
-      if (error) {
-        throw new Error(`Erro ao executar comando: ${error.message}`);
-      }
-
-      toast({
-        title: "Comando executado",
-        description: "O comando SQL foi executado com sucesso."
-      });
-      await fetchOperacoes();
-    } catch (e: any) {
-      console.error('Erro ao executar SQL:', e);
-      toast({
-        title: "Erro ao executar comando",
-        description: e.message,
-        variant: "destructive"
-      });
-    } finally {
-      setAtualizando(false);
-    }
-  }, [fetchOperacoes, toast]);
-
-  const aplicarFiltros = useCallback(() => {
-    setFiltroAplicado({
-      data: dataFiltro,
-      hora: horaInicialFiltro,
-      operador: operadorFiltro,
-    });
-  }, [dataFiltro, horaInicialFiltro, operadorFiltro]);
-
-  const limparFiltros = useCallback(async () => {
-    const ultimaData = await buscarUltimaData();
-    setDataFiltro(ultimaData);
-    setHoraInicialFiltro('Todos');
-    setOperadorFiltro('');
-    setFiltroAplicado({
-      data: ultimaData,
-      hora: 'Todos',
-      operador: '',
-    });
-    setOperacaoIdSelecionado(null);
-    setOperacaoSelecionada('TODOS');
-  }, [buscarUltimaData]);
-
-  // 4. Cálculos e Filtros (useMemo)
-  const operacoesFiltradas = useMemo(() => {
-    return operacoes.filter(op => {
-      // Filtro de Hora Inicial (Turno)
-      const filtroHora = filtroAplicado.hora === 'Todos' || op.hora_inicial === filtroAplicado.hora;
-      
-      // Filtro de Operador (Busca em equipamentos)
-      const filtroOperador = !filtroAplicado.operador || 
-        op.equipamentos.some(eq => 
-          eq.motorista_operador?.toLowerCase().includes(filtroAplicado.operador.toLowerCase())
-        );
-
-      return filtroHora && filtroOperador;
-    });
-  }, [operacoes, filtroAplicado]);
-
-  const operacoesPorTipo = useMemo(() => {
-    return operacoesFiltradas.reduce((acc, op) => {
-      // Para NAVIO, usar nome do navio + carga como chave
-      if (op.op === 'NAVIO' && op.navios) {
-        const chave = `${op.navios.nome_navio} - ${op.navios.carga}`;
-        acc[chave] = acc[chave] || [];
-        acc[chave].push(op);
-      } else {
-        // Para outros tipos, usar apenas o tipo
-        acc[op.op] = acc[op.op] || [];
-        acc[op.op].push(op);
-      }
-      return acc;
-    }, {} as Record<string, OperacaoCompleta[]>);
-  }, [operacoesFiltradas]);
-
-  // 5. Retorno do Hook
-  return {
-    // Estado
-    operacaoSelecionada,
-    setOperacaoSelecionada,
-    operacaoIdSelecionado,
-    setOperacaoIdSelecionado,
-    operacoes,
-    loading,
-    error,
-    atualizando,
     
-    // Estado de Filtro
-    dataFiltro,
-    setDataFiltro,
-    horaInicialFiltro,
-    setHoraInicialFiltro,
-    operadorFiltro,
-    setOperadorFiltro,
-    
-    // Funções de Ação
-    handleAtualizarDados,
-    handleExecutarSQL,
-    aplicarFiltros,
-    limparFiltros,
-    
-    // Dados Calculados
-    operacoesFiltradas,
-    operacoesPorTipo,
-    
-    // Utilidades
-    formatarHoras,
-    formatarDataBR,
-    getOperacaoIcon,
-    
-    // Filtro aplicado atual
-    filtroAplicado,
+    await onDownload(dataInicial, dataFinal);
   };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white flex items-center">
+              <FileText className="h-5 w-5 mr-2 text-blue-300" />
+              Download de Relatório
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="text-white hover:bg-white/20"
+            >
+              ×
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-white flex items-center">
+                <Calendar className="h-4 w-4 mr-2 text-blue-300" />
+                Data Inicial
+              </Label>
+              <Input
+                type="date"
+                value={dataInicial}
+                onChange={(e) => setDataInicial(e.target.value)}
+                className="bg-white/5 border-blue-300/30 text-white focus:border-blue-300"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-white flex items-center">
+                <Calendar className="h-4 w-4 mr-2 text-blue-300" />
+                Data Final
+              </Label>
+              <Input
+                type="date"
+                value={dataFinal}
+                onChange={(e) => setDataFinal(e.target.value)}
+                className="bg-white/5 border-blue-300/30 text-white focus:border-blue-300"
+              />
+            </div>
+
+            <div className="bg-blue-900/30 p-4 rounded-lg">
+              <p className="text-sm text-blue-300">
+                <span className="font-medium">Período selecionado:</span><br />
+                De {dataInicial ? new Date(dataInicial).toLocaleDateString('pt-BR') : '--'} 
+                até {dataFinal ? new Date(dataFinal).toLocaleDateString('pt-BR') : '--'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-3 mt-8">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="text-white border-blue-300/30 hover:bg-white/10"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleDownload}
+              disabled={loading || !dataInicial || !dataFinal}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Gerando...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Baixar Relatório
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // Componente HeaderControles
-interface HeaderControlesProps extends ReturnType<typeof useTransporteData> {
+interface HeaderControlesProps {
   navigate: ReturnType<typeof useNavigate>;
   menuAberto: boolean;
   setMenuAberto: (aberto: boolean) => void;
+  handleAtualizarDados: () => Promise<void>;
+  handleExecutarSQL: () => Promise<void>;
+  handleOpenModalRelatorio: () => void;
+  atualizando: boolean;
 }
 
 const HeaderControles: React.FC<HeaderControlesProps> = ({ 
@@ -457,6 +303,7 @@ const HeaderControles: React.FC<HeaderControlesProps> = ({
   setMenuAberto, 
   handleAtualizarDados, 
   handleExecutarSQL, 
+  handleOpenModalRelatorio,
   atualizando 
 }) => {
   return (
@@ -477,6 +324,15 @@ const HeaderControles: React.FC<HeaderControlesProps> = ({
           </div>
           
           <div className="flex items-center space-x-3">
+            <Button 
+              onClick={handleOpenModalRelatorio}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-semibold transition-all shadow-sm hover:shadow-md"
+              title="Gerar Relatório"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Relatório
+            </Button>
+            
             <Button 
               onClick={handleExecutarSQL} 
               disabled={atualizando}
@@ -529,7 +385,17 @@ const HeaderControles: React.FC<HeaderControlesProps> = ({
 };
 
 // Componente FiltrosArea
-interface FiltrosAreaProps extends ReturnType<typeof useTransporteData> {}
+interface FiltrosAreaProps {
+  dataFiltro: string;
+  setDataFiltro: (data: string) => void;
+  horaInicialFiltro: string;
+  setHoraInicialFiltro: (hora: string) => void;
+  operadorFiltro: string;
+  setOperadorFiltro: (operador: string) => void;
+  aplicarFiltros: () => void;
+  limparFiltros: () => void;
+  formatarDataBR: (data: string) => string;
+}
 
 const FiltrosArea: React.FC<FiltrosAreaProps> = ({
   dataFiltro,
@@ -648,11 +514,6 @@ const ResumoCards: React.FC<ResumoCardsProps> = ({
 }) => {
   const tiposOperacao = ['HYDRO', 'ALBRAS', 'SANTOS BRASIL'];
   
-  const formatarHoras = (totalHoras: number): string => {
-    if (totalHoras === 0) return '0h';
-    return `${totalHoras.toFixed(1)}h`;
-  };
-
   const getOperacaoIcon = (op: string): LucideIcon => {
     switch (op) {
       case 'ALBRAS':
@@ -1107,23 +968,464 @@ const TabelaAusencias: React.FC<TabelaAusenciasProps> = ({ ausencias }) => {
 // Componente Principal (RelatorioTransporte)
 const RelatorioTransporte = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [menuAberto, setMenuAberto] = useState(true);
   
-  const {
-    operacaoSelecionada,
-    setOperacaoSelecionada,
-    operacaoIdSelecionado,
-    setOperacaoIdSelecionado,
-    loading,
-    error,
-    operacoesFiltradas,
-    operacoesPorTipo,
-    formatarDataBR,
-    getOperacaoIcon,
-    dataFiltro,
-    filtroAplicado,
-    ...hookProps
-  } = useTransporteData();
+  // Estado Principal
+  const [operacaoSelecionada, setOperacaoSelecionada] = useState<string>('TODOS');
+  const [operacaoIdSelecionado, setOperacaoIdSelecionado] = useState<string | null>(null);
+  const [operacoes, setOperacoes] = useState<OperacaoCompleta[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [atualizando, setAtualizando] = useState(false);
+  
+  // Estado de Filtro
+  const [dataFiltro, setDataFiltro] = useState('');
+  const [horaInicialFiltro, setHoraInicialFiltro] = useState('Todos');
+  const [operadorFiltro, setOperadorFiltro] = useState('');
+
+  // Estado de Filtro Aplicado
+  const [filtroAplicado, setFiltroAplicado] = useState({
+    data: '',
+    hora: 'Todos',
+    operador: '',
+  });
+
+  // Estado para relatório
+  const [modalRelatorioOpen, setModalRelatorioOpen] = useState(false);
+  const [gerandoRelatorio, setGerandoRelatorio] = useState(false);
+
+  // Função para buscar última data de forma segura
+  const buscarUltimaData = useCallback(async (): Promise<string> => {
+    try {
+      const hoje = new Date().toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('registro_operacoes')
+        .select('data')
+        .order('data', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Erro ao buscar última data:', error);
+        return hoje;
+      }
+
+      if (data?.data) {
+        const dataCorrigida = corrigirFusoHorarioData(data.data);
+        return dataCorrigida || hoje;
+      }
+      
+      return hoje;
+    } catch (error) {
+      console.error('Erro inesperado ao buscar última data:', error);
+      return new Date().toISOString().split('T')[0];
+    }
+  }, []);
+
+  // Inicializar dataFiltro com a data de hoje
+  useEffect(() => {
+    const inicializarData = async () => {
+      const ultimaData = await buscarUltimaData();
+      setDataFiltro(ultimaData);
+      setFiltroAplicado(prev => ({ ...prev, data: ultimaData }));
+    };
+    inicializarData();
+  }, [buscarUltimaData]);
+
+  const fetchOperacoes = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      let dataParaFiltrar = filtroAplicado.data;
+      
+      // Se não tiver data filtro aplicada, usa a data atual
+      if (!dataParaFiltrar) {
+        dataParaFiltrar = new Date().toISOString().split('T')[0];
+        setFiltroAplicado(prev => ({ ...prev, data: dataParaFiltrar }));
+        setDataFiltro(dataParaFiltrar);
+      }
+
+      // Construir query base
+      let queryOperacoes = supabase
+        .from('registro_operacoes')
+        .select(`
+          *,
+          navios (
+            id,
+            nome_navio,
+            carga
+          )
+        `);
+
+      // Aplicar filtro de data se existir
+      if (dataParaFiltrar) {
+        queryOperacoes = queryOperacoes.eq('data', dataParaFiltrar);
+      }
+
+      // Executar query
+      const { data: operacoesData, error: operacoesError } = await queryOperacoes
+        .order('data', { ascending: false })
+        .order('hora_inicial', { ascending: false });
+
+      if (operacoesError) {
+        throw new Error(`Erro ao carregar operações: ${operacoesError.message}`);
+      }
+
+      // Se não houver dados, limpar e retornar
+      if (!operacoesData || operacoesData.length === 0) {
+        setOperacoes([]);
+        setLoading(false);
+        return;
+      }
+      
+      // Corrigir fuso horário das datas
+      const operacoesComFusoCorrigido = operacoesData.map(op => ({
+        ...op,
+        data: corrigirFusoHorarioData(op.data)
+      }));
+
+      // Buscar dados relacionados para cada operação
+      const operacoesCompletas = await Promise.all(
+        operacoesComFusoCorrigido.map(async (operacao) => {
+          try {
+            const [equipamentosResult, ajudantesResult, ausenciasResult] = await Promise.all([
+              supabase.from('equipamentos').select('*').eq('registro_operacoes_id', operacao.id),
+              supabase.from('ajudantes').select('*').eq('registro_operacoes_id', operacao.id),
+              supabase.from('ausencias').select('*').eq('registro_operacoes_id', operacao.id)
+            ]);
+
+            // Corrigir fusos horários
+            const ajudantesCorrigidos = ajudantesResult.data ? ajudantesResult.data.map(ajudante => ({
+              ...ajudante,
+              data: corrigirFusoHorarioData(ajudante.data)
+            })) : [];
+
+            const ausenciasCorrigidas = ausenciasResult.data ? ausenciasResult.data.map(ausencia => ({
+              ...ausencia,
+              data: corrigirFusoHorarioData(ausencia.data)
+            })) : [];
+
+            // Ordenar ajudantes e ausências alfabeticamente
+            const ajudantesOrdenados = ordenarPorNome(ajudantesCorrigidos);
+            const ausenciasOrdenadas = ordenarPorNome(ausenciasCorrigidas);
+            const equipamentosOrdenados = ordenarEquipamentosPorOperador(equipamentosResult.data || []);
+
+            return {
+              ...operacao,
+              equipamentos: equipamentosOrdenados,
+              ajudantes: ajudantesOrdenados,
+              ausencias: ausenciasOrdenadas,
+            } as OperacaoCompleta;
+          } catch (error) {
+            console.error(`Erro ao carregar dados para operação ${operacao.id}:`, error);
+            return {
+              ...operacao,
+              equipamentos: [],
+              ajudantes: [],
+              ausencias: [],
+            } as OperacaoCompleta;
+          }
+        })
+      );
+
+      setOperacoes(operacoesCompletas);
+      
+    } catch (e: any) {
+      console.error('Erro ao buscar operações:', e);
+      setError(e.message || 'Erro desconhecido ao carregar dados');
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os dados. Tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [filtroAplicado.data, toast]);
+
+  // Efeito para carregar dados quando o filtro aplicado muda
+  useEffect(() => {
+    if (filtroAplicado.data) {
+      fetchOperacoes();
+    }
+  }, [filtroAplicado, fetchOperacoes]);
+
+  // Função para gerar relatório CSV
+  const gerarRelatorioCSV = async (dataInicial: string, dataFinal: string) => {
+    setGerandoRelatorio(true);
+    
+    try {
+      // Corrigir fusos horários das datas
+      const dataInicialCorrigida = corrigirFusoHorarioData(dataInicial);
+      const dataFinalCorrigida = corrigirFusoHorarioData(dataFinal);
+
+      console.log('Buscando dados para o relatório:', dataInicialCorrigida, 'até', dataFinalCorrigida);
+
+      // Executar a query SQL do relatório - versão simplificada para teste
+      const { data: relatorioData, error } = await supabase
+        .from('registro_operacoes')
+        .select(`
+          id,
+          op,
+          data,
+          hora_inicial,
+          hora_final,
+          centro_resultado,
+          observacao,
+          carga,
+          navio_id,
+          navios (
+            nome_navio,
+            carga
+          ),
+          equipamentos (
+            id,
+            tag,
+            tag_generico,
+            categoria_nome,
+            local,
+            motorista_operador,
+            horas_trabalhadas,
+            horas_operando
+          )
+        `)
+        .gte('data', dataInicialCorrigida)
+        .lte('data', dataFinalCorrigida)
+        .order('data', { ascending: true });
+
+      if (error) {
+        console.error('Erro na query:', error);
+        throw new Error(`Erro ao buscar dados: ${error.message}`);
+      }
+
+      console.log('Dados encontrados:', relatorioData?.length || 0, 'operações');
+
+      if (!relatorioData || relatorioData.length === 0) {
+        toast({
+          title: "Nenhum dado encontrado",
+          description: `Não há operações no período de ${dataInicialCorrigida} a ${dataFinalCorrigida}`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Processar os dados conforme o SQL fornecido
+      const dadosProcessados: RelatorioItem[] = [];
+
+      relatorioData.forEach(operacao => {
+        const equipamentos = operacao.equipamentos || [];
+        
+        equipamentos.forEach(equipamento => {
+          const item: RelatorioItem = {
+            registro_id: operacao.id,
+            operacao: operacao.op === 'NAVIO' && operacao.navios
+              ? `${operacao.navios.nome_navio} - ${operacao.navios.carga}`
+              : operacao.op,
+            carga_operacao: operacao.op === 'NAVIO' && operacao.navios
+              ? operacao.navios.carga
+              : operacao.carga || '',
+            data: operacao.data,
+            hora_inicial: operacao.hora_inicial || '',
+            hora_final: operacao.hora_final || '',
+            centro_resultado: operacao.centro_resultado || '',
+            observacao: operacao.observacao || '',
+            equipamento_id: equipamento.id,
+            tag: equipamento.tag || '',
+            tag_generico: equipamento.tag_generico || '',
+            categoria_nome: equipamento.categoria_nome || '',
+            local: equipamento.local || '',
+            motorista_operador: equipamento.motorista_operador || '',
+            horas_trabalhadas: equipamento.horas_trabalhadas || 0,
+            horas_operando: equipamento.horas_operando || 0
+          };
+          
+          dadosProcessados.push(item);
+        });
+      });
+
+      console.log('Dados processados:', dadosProcessados.length, 'registros');
+
+      // Gerar CSV
+      const cabecalho = [
+        'Registro ID',
+        'Operação',
+        'Carga Operação',
+        'Data',
+        'Hora Inicial',
+        'Hora Final',
+        'Centro Resultado',
+        'Observação',
+        'Equipamento ID',
+        'Tag',
+        'Tag Genérico',
+        'Categoria',
+        'Local',
+        'Motorista/Operador',
+        'Horas Trabalhadas',
+        'Horas Operando'
+      ];
+
+      const linhas = dadosProcessados.map(item => [
+        item.registro_id,
+        item.operacao,
+        item.carga_operacao,
+        item.data,
+        item.hora_inicial,
+        item.hora_final,
+        item.centro_resultado,
+        item.observacao,
+        item.equipamento_id,
+        item.tag,
+        item.tag_generico,
+        item.categoria_nome,
+        item.local,
+        item.motorista_operador,
+        item.horas_trabalhadas.toString(),
+        item.horas_operando.toString()
+      ]);
+
+      const csvContent = [
+        cabecalho.join(','),
+        ...linhas.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+
+      // Criar e baixar o arquivo
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `relatorio_operacoes_${dataInicialCorrigida}_${dataFinalCorrigida}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Relatório gerado",
+        description: `Relatório de ${formatarDataBR(dataInicialCorrigida)} a ${formatarDataBR(dataFinalCorrigida)} baixado com sucesso.`,
+      });
+
+      setModalRelatorioOpen(false);
+
+    } catch (error: any) {
+      console.error('Erro ao gerar relatório:', error);
+      toast({
+        title: "Erro ao gerar relatório",
+        description: error.message || "Ocorreu um erro ao gerar o relatório.",
+        variant: "destructive"
+      });
+    } finally {
+      setGerandoRelatorio(false);
+    }
+  };
+
+  const handleDownloadRelatorio = async (dataInicial: string, dataFinal: string) => {
+    await gerarRelatorioCSV(dataInicial, dataFinal);
+  };
+
+  const handleOpenModalRelatorio = () => {
+    setModalRelatorioOpen(true);
+  };
+
+  const handleAtualizarDados = useCallback(async () => {
+    setAtualizando(true);
+    try {
+      await fetchOperacoes();
+      toast({
+        title: "Dados atualizados",
+        description: "Os dados foram atualizados com sucesso."
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar dados:', error);
+    } finally {
+      setAtualizando(false);
+    }
+  }, [fetchOperacoes, toast]);
+
+  const handleExecutarSQL = useCallback(async () => {
+    setAtualizando(true);
+    try {
+      const { error } = await supabase.rpc('executar_atualizacao_horarios');
+      
+      if (error) {
+        throw new Error(`Erro ao executar comando: ${error.message}`);
+      }
+
+      toast({
+        title: "Comando executado",
+        description: "O comando SQL foi executado com sucesso."
+      });
+      await fetchOperacoes();
+    } catch (e: any) {
+      console.error('Erro ao executar SQL:', e);
+      toast({
+        title: "Erro ao executar comando",
+        description: e.message,
+        variant: "destructive"
+      });
+    } finally {
+      setAtualizando(false);
+    }
+  }, [fetchOperacoes, toast]);
+
+  const aplicarFiltros = useCallback(() => {
+    setFiltroAplicado({
+      data: dataFiltro,
+      hora: horaInicialFiltro,
+      operador: operadorFiltro,
+    });
+  }, [dataFiltro, horaInicialFiltro, operadorFiltro]);
+
+  const limparFiltros = useCallback(async () => {
+    const ultimaData = await buscarUltimaData();
+    setDataFiltro(ultimaData);
+    setHoraInicialFiltro('Todos');
+    setOperadorFiltro('');
+    setFiltroAplicado({
+      data: ultimaData,
+      hora: 'Todos',
+      operador: '',
+    });
+    setOperacaoIdSelecionado(null);
+    setOperacaoSelecionada('TODOS');
+  }, [buscarUltimaData]);
+
+  // Cálculos e Filtros (useMemo)
+  const operacoesFiltradas = useMemo(() => {
+    return operacoes.filter(op => {
+      // Filtro de Hora Inicial (Turno)
+      const filtroHora = filtroAplicado.hora === 'Todos' || op.hora_inicial === filtroAplicado.hora;
+      
+      // Filtro de Operador (Busca em equipamentos)
+      const filtroOperador = !filtroAplicado.operador || 
+        op.equipamentos.some(eq => 
+          eq.motorista_operador?.toLowerCase().includes(filtroAplicado.operador.toLowerCase())
+        );
+
+      return filtroHora && filtroOperador;
+    });
+  }, [operacoes, filtroAplicado]);
+
+  const operacoesPorTipo = useMemo(() => {
+    return operacoesFiltradas.reduce((acc, op) => {
+      // Para NAVIO, usar nome do navio + carga como chave
+      if (op.op === 'NAVIO' && op.navios) {
+        const chave = `${op.navios.nome_navio} - ${op.navios.carga}`;
+        acc[chave] = acc[chave] || [];
+        acc[chave].push(op);
+      } else {
+        // Para outros tipos, usar apenas o tipo
+        acc[op.op] = acc[op.op] || [];
+        acc[op.op].push(op);
+      }
+      return acc;
+    }, {} as Record<string, OperacaoCompleta[]>);
+  }, [operacoesFiltradas]);
 
   // Encontra a operação selecionada
   const operacaoAtual = useMemo(() => {
@@ -1132,11 +1434,6 @@ const RelatorioTransporte = () => {
     }
     return null;
   }, [operacoesFiltradas, operacaoIdSelecionado]);
-
-  const formatarHoras = useCallback((totalHoras: number): string => {
-    if (totalHoras === 0) return '0h';
-    return `${totalHoras.toFixed(1)}h`;
-  }, []);
 
   const renderConteudoPrincipal = () => {
     if (loading && operacoesFiltradas.length === 0) {
@@ -1161,7 +1458,7 @@ const RelatorioTransporte = () => {
             <p className="text-lg font-medium text-white">Erro ao carregar dados</p>
             <p className="text-red-400">{error}</p>
             <Button 
-              onClick={hookProps.handleAtualizarDados}
+              onClick={handleAtualizarDados}
               className="mt-4"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -1254,19 +1551,30 @@ const RelatorioTransporte = () => {
         navigate={navigate}
         menuAberto={menuAberto}
         setMenuAberto={setMenuAberto}
-        {...hookProps}
+        handleAtualizarDados={handleAtualizarDados}
+        handleExecutarSQL={handleExecutarSQL}
+        handleOpenModalRelatorio={handleOpenModalRelatorio}
+        atualizando={atualizando}
+      />
+
+      {/* Modal de Relatório */}
+      <ModalRelatorio
+        isOpen={modalRelatorioOpen}
+        onClose={() => setModalRelatorioOpen(false)}
+        onDownload={handleDownloadRelatorio}
+        loading={gerandoRelatorio}
       />
 
       {/* Filtros */}
       <FiltrosArea 
         dataFiltro={dataFiltro}
-        setDataFiltro={hookProps.setDataFiltro}
-        horaInicialFiltro={hookProps.horaInicialFiltro}
-        setHoraInicialFiltro={hookProps.setHoraInicialFiltro}
-        operadorFiltro={hookProps.operadorFiltro}
-        setOperadorFiltro={hookProps.setOperadorFiltro}
-        aplicarFiltros={hookProps.aplicarFiltros}
-        limparFiltros={hookProps.limparFiltros}
+        setDataFiltro={setDataFiltro}
+        horaInicialFiltro={horaInicialFiltro}
+        setHoraInicialFiltro={setHoraInicialFiltro}
+        operadorFiltro={operadorFiltro}
+        setOperadorFiltro={setOperadorFiltro}
+        aplicarFiltros={aplicarFiltros}
+        limparFiltros={limparFiltros}
         formatarDataBR={formatarDataBR}
       />
 
@@ -1417,23 +1725,25 @@ const RelatorioTransporte = () => {
         <div className="flex-1 overflow-hidden">
           <Card className="bg-white/10 backdrop-blur-sm border-blue-200/30 h-full">
             <CardHeader className="pb-3">
-              <CardTitle className="text-xl font-semibold text-white">
-                {operacaoIdSelecionado 
-                  ? `Operação ${operacaoAtual ? (operacaoAtual.op === 'NAVIO' && operacaoAtual.navios 
-                    ? `${operacaoAtual.navios.nome_navio} - ${operacaoAtual.navios.carga}`
-                    : operacaoAtual.op) : ''}`
-                  : operacaoSelecionada === 'TODOS' 
-                    ? 'Todas as Operações' 
-                    : `Operações - ${operacaoSelecionada}`}
-              </CardTitle>
-              {operacaoIdSelecionado && operacaoAtual && (
+              <div className="flex flex-col space-y-2">
+                <CardTitle className="text-xl font-semibold text-white">
+                  {operacaoIdSelecionado 
+                    ? `Operação ${operacaoAtual ? (operacaoAtual.op === 'NAVIO' && operacaoAtual.navios 
+                      ? `${operacaoAtual.navios.nome_navio} - ${operacaoAtual.navios.carga}`
+                      : operacaoAtual.op) : ''}`
+                    : operacaoSelecionada === 'TODOS' 
+                      ? 'Todas as Operações' 
+                      : `Operações - ${operacaoSelecionada}`}
+                </CardTitle>
+                {operacaoIdSelecionado && operacaoAtual && (
+                  <p className="text-sm text-blue-300">
+                    ID: <span className="font-mono text-white">{operacaoAtual.id}</span> • {formatarDataBR(operacaoAtual.data)} • {operacaoAtual.hora_inicial} - {operacaoAtual.hora_final}
+                  </p>
+                )}
                 <p className="text-sm text-blue-300">
-                  ID: <span className="font-mono text-white">{operacaoAtual.id}</span> • {formatarDataBR(operacaoAtual.data)} • {operacaoAtual.hora_inicial} - {operacaoAtual.hora_final}
+                  {dataFiltro ? `Dados de ${formatarDataBR(dataFiltro)}` : 'Selecione uma data para filtrar'}
                 </p>
-              )}
-              <p className="text-sm text-blue-300">
-                {dataFiltro ? `Dados de ${formatarDataBR(dataFiltro)}` : 'Selecione uma data para filtrar'}
-              </p>
+              </div>
             </CardHeader>
             <CardContent className="p-6 min-h-[500px]">
               {renderConteudoPrincipal()}
