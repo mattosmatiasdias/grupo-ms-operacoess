@@ -192,7 +192,11 @@ const Dashboard = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-white">Gestão de Operações</h1>
+<<<<<<< HEAD
                 <p className="text-blue-200 text-sm">( versão 19.0)</p>
+=======
+                <p className="text-blue-200 text-sm">( versão 4.1.3)</p>
+>>>>>>> a81954500b4feb1c41f9622d5efa371e66cfab16
               </div>
             </div>
           </div>

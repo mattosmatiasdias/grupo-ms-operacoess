@@ -1755,4 +1755,8 @@ const RelatorioTransporte = () => {
   );
 };
 
+<<<<<<< HEAD
 export default RelatorioTransporte;
+=======
+export default RelatorioTransporte;
+>>>>>>> a81954500b4feb1c41f9622d5efa371e66cfab16
