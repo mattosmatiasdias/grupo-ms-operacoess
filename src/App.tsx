@@ -1,4 +1,4 @@
-// src/App.tsx (Atualizado completo)
+// src/App.tsx (CORRIGIDO - com rota /escalas/nova)
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -43,8 +43,7 @@ import Ocorrencias from "./pages/escalas/Ocorrencias";
 import Pessoal from "./pages/escalas/Pessoal";
 import Relatorios from "./pages/escalas/Relatorios";
 import Salarios from "./pages/escalas/Salarios";
-import NovaEscala from "./pages/escalas/NovaEscala"; // NOVA: Import da página de Nova Escala
-import VisualizarEscala from "./pages/escalas/VisualizarEscala"; // NOVA: Import da página de Visualizar Escala
+import NovaEscala from "./pages/escalas/NovaEscala"; // ADICIONE ESTE IMPORT
 
 const queryClient = new QueryClient();
 
@@ -192,22 +191,10 @@ const App = () => (
               </ProtectedRoute>
             } />
 
-            <Route path="/escalas/nova" element={ // NOVA: Rota para criar nova escala
+            {/* ADICIONE ESTA ROTA - Nova Escala */}
+            <Route path="/escalas/nova" element={
               <ProtectedRoute>
                 <NovaEscala />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/escalas/visualizar/:id" element={ // NOVA: Rota para visualizar escala
-              <ProtectedRoute>
-                <VisualizarEscala />
-              </ProtectedRoute>
-            } />
-
-            {/* Rota para página não encontrada */}
-            <Route path="/404" element={
-              <ProtectedRoute>
-                <NotFound />
               </ProtectedRoute>
             } />
 

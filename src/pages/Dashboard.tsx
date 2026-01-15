@@ -1,4 +1,4 @@
-import { useAuth } from '@/hooks/useAuth';
+﻿import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,7 +19,7 @@ const Dashboard = () => {
   const menuItems = [
     {
       icon: FileText,
-      label: 'RELATÓRIO DE TRANSPORTE',
+      label: 'RELATÃ“RIO DE TRANSPORTE',
       path: '/relatorio-transporte',
       color: 'from-green-600 to-green-700',
       hoverColor: 'from-green-700 to-green-800'
@@ -54,14 +54,14 @@ const Dashboard = () => {
     },
     {
       icon: AlertTriangle,
-      label: 'OCORRÊNCIAS',
+      label: 'OCORRÃŠNCIAS',
       path: '/ocorrencias',
       color: 'from-indigo-600 to-indigo-700',
       hoverColor: 'from-indigo-700 to-indigo-800'
     },
     {
       icon: Bell,
-      label: 'NOTIFICAÇÕES',
+      label: 'NOTIFICAÃ‡Ã•ES',
       path: '/notificacao',
       color: 'from-violet-600 to-violet-700',
       hoverColor: 'from-violet-700 to-violet-800',
@@ -70,7 +70,7 @@ const Dashboard = () => {
     {
       icon: Building2,
       label: 'RDO SANTOS BRASIL',
-      path: '/santos-brasil', // ← CORRIGIDO: era '/rdo-santos-brasil'
+      path: '/santos-brasil', // â† CORRIGIDO: era '/rdo-santos-brasil'
       color: 'from-red-600 to-red-700',
       hoverColor: 'from-red-700 to-red-800'
     },
@@ -86,7 +86,7 @@ const Dashboard = () => {
   const quickActions = [
     {
       icon: FileText,
-      label: 'NOVO LANÇAMENTO',
+      label: 'NOVO LANÃ‡AMENTO',
       path: '/novo-lancamento',
       color: 'from-cyan-500 to-cyan-600',
       hoverColor: 'from-cyan-600 to-cyan-700'
@@ -94,7 +94,7 @@ const Dashboard = () => {
     {
       icon: Building2,
       label: 'NOVO RDO SANTOS BRASIL',
-      path: '/santos-brasil/novo', // ← CORRIGIDO: era '/rdo-santos-brasil/novo'
+      path: '/santos-brasil/novo', // â† CORRIGIDO: era '/rdo-santos-brasil/novo'
       color: 'from-red-500 to-red-600',
       hoverColor: 'from-red-600 to-red-700'
     }
@@ -113,8 +113,8 @@ const Dashboard = () => {
             <Menu className="h-6 w-6" />
           </Button>
           <div>
-            <h1 className="text-xl font-bold">Gestão de Operações</h1>
-            <p className="text-sm opacity-90">{userProfile?.full_name || 'Usuário'}</p>
+            <h1 className="text-xl font-bold">GestÃ£o de OperaÃ§Ãµes</h1>
+            <p className="text-sm opacity-90">{userProfile?.full_name || 'UsuÃ¡rio'}</p>
           </div>
         </div>
         <Button
@@ -191,12 +191,9 @@ const Dashboard = () => {
                 <BarChart3 className="h-8 w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">Gestão de Operações</h1>
-<<<<<<< HEAD
-                <p className="text-blue-200 text-sm">( versão 19.0)</p>
-=======
-                <p className="text-blue-200 text-sm">( versão 4.1.3)</p>
->>>>>>> a81954500b4feb1c41f9622d5efa371e66cfab16
+                <h1 className="text-2xl font-bold text-white">GestÃ£o de OperaÃ§Ãµes</h1>
+                <p className="text-blue-200 text-sm">( versÃ£o 19.0)</p>
+                <p className="text-blue-200 text-sm">( versÃ£o 4.1.3)</p>
               </div>
             </div>
           </div>
@@ -204,9 +201,9 @@ const Dashboard = () => {
           {/* User Info */}
           <div className="p-6 border-b border-blue-600/30">
             <div className="bg-white/10 rounded-xl p-4">
-              <p className="text-white font-semibold">{userProfile?.full_name || 'Usuário'}</p>
+              <p className="text-white font-semibold">{userProfile?.full_name || 'UsuÃ¡rio'}</p>
               <p className="text-blue-200 text-sm">Status: <span className="text-green-400">Ativo</span></p>
-              <p className="text-blue-200 text-sm">Último acesso: {new Date().toLocaleDateString('pt-BR')}</p>
+              <p className="text-blue-200 text-sm">Ãšltimo acesso: {new Date().toLocaleDateString('pt-BR')}</p>
             </div>
           </div>
 
@@ -237,7 +234,7 @@ const Dashboard = () => {
 
           {/* Quick Actions */}
           <div className="p-6 border-t border-blue-600/30">
-            <h3 className="text-blue-200 font-semibold text-sm uppercase tracking-wider mb-4">Ações Rápidas</h3>
+            <h3 className="text-blue-200 font-semibold text-sm uppercase tracking-wider mb-4">AÃ§Ãµes RÃ¡pidas</h3>
             {quickActions.map((action) => (
               <Button
                 key={action.path}
@@ -271,10 +268,10 @@ const Dashboard = () => {
           <div className="bg-white/5 backdrop-blur-sm border-b border-blue-600/30 p-8">
             <div className="max-w-4xl">
               <h2 className="text-4xl font-bold text-white mb-4">
-                Bem-vindo, {userProfile?.full_name || 'Usuário'}!
+                Bem-vindo, {userProfile?.full_name || 'UsuÃ¡rio'}!
               </h2>
               <p className="text-xl text-blue-200">
-                Sistema de gestão de operações, navios e relatórios integrados
+                Sistema de gestÃ£o de operaÃ§Ãµes, navios e relatÃ³rios integrados
               </p>
             </div>
           </div>
@@ -286,7 +283,7 @@ const Dashboard = () => {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-blue-200 text-sm">Operações Hoje</p>
+                      <p className="text-blue-200 text-sm">OperaÃ§Ãµes Hoje</p>
                       <p className="text-3xl font-bold">12</p>
                     </div>
                     <div className="bg-blue-500/20 p-3 rounded-xl">
@@ -335,9 +332,9 @@ const Dashboard = () => {
                       <div className="bg-green-500/20 p-2 rounded">
                         <FileText className="h-4 w-4 text-green-400" />
                       </div>
-                      <span className="text-white">Novo relatório de transporte</span>
+                      <span className="text-white">Novo relatÃ³rio de transporte</span>
                     </div>
-                    <span className="text-blue-200 text-sm">há 2 horas</span>
+                    <span className="text-blue-200 text-sm">hÃ¡ 2 horas</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                     <div className="flex items-center space-x-3">
@@ -346,7 +343,7 @@ const Dashboard = () => {
                       </div>
                       <span className="text-white">Navio atualizado</span>
                     </div>
-                    <span className="text-blue-200 text-sm">há 4 horas</span>
+                    <span className="text-blue-200 text-sm">hÃ¡ 4 horas</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                     <div className="flex items-center space-x-3">
@@ -355,7 +352,7 @@ const Dashboard = () => {
                       </div>
                       <span className="text-white">Novo RDO Santos Brasil criado</span>
                     </div>
-                    <span className="text-blue-200 text-sm">há 1 dia</span>
+                    <span className="text-blue-200 text-sm">hÃ¡ 1 dia</span>
                   </div>
                 </div>
               </CardContent>

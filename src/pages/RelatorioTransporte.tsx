@@ -1,3 +1,4 @@
+﻿// src/pages/RelatorioTransporte.tsx
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -1755,8 +1756,4 @@ const RelatorioTransporte = () => {
   );
 };
 
-<<<<<<< HEAD
-export default RelatorioTransporte;
-=======
-export default RelatorioTransporte;
->>>>>>> a81954500b4feb1c41f9622d5efa371e66cfab16
+export default RelatorioTransporte; // ← LINHA CRÍTICA: NÃO ESQUEÇA DESTA LINHA!
