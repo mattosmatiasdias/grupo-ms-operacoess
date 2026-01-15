@@ -37,13 +37,13 @@ import Vistorias from "./pages/Vistorias";
 import Rateios from "./pages/Rateios";
 
 // Páginas do módulo de Escalas
-import EscalasDashboard from "./pages/escalas/Dashboard";
-import EscalasCalendar from "./pages/escalas/Escalas";
-import Ocorrencias from "./pages/escalas/Ocorrencias";
-import Pessoal from "./pages/escalas/Pessoal";
-import Relatorios from "./pages/escalas/Relatorios";
-import Salarios from "./pages/escalas/Salarios";
-import NovaEscala from "./pages/escalas/NovaEscala"; // ADICIONE ESTE IMPORT
+import EscalasDashboard from "./pages/escalas/dashboard";
+import EscalasCalendar from "./pages/escalas/escalas";
+import Ocorrencias from "./pages/escalas/ocorrencias";
+import Pessoal from "./pages/escalas/pessoal";
+import Relatorios from "./pages/escalas/relatorios";
+import Salarios from "./pages/escalas/salarios";
+import NovaEscala from "./pages/escalas/novaescala"; // ADICIONE ESTE IMPORT
 
 const queryClient = new QueryClient();
 
