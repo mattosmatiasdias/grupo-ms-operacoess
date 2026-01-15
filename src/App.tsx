@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 // src/App.tsx (Atualizado completo)
-=======
-// src/App.tsx
->>>>>>> a81954500b4feb1c41f9622d5efa371e66cfab16
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -37,7 +33,6 @@ import RdoSantosBrasil from "./pages/RdoSantosBrasil";
 // Página do módulo de Vistorias
 import Vistorias from "./pages/Vistorias";
 
-<<<<<<< HEAD
 // Página do módulo de Rateios
 import Rateios from "./pages/Rateios";
 
@@ -51,11 +46,6 @@ import Salarios from "./pages/escalas/Salarios";
 import NovaEscala from "./pages/escalas/NovaEscala"; // NOVA: Import da página de Nova Escala
 import VisualizarEscala from "./pages/escalas/VisualizarEscala"; // NOVA: Import da página de Visualizar Escala
 
-=======
-// Página do módulo de Rateios ← ADICIONE ESTA IMPORT
-import Rateios from "./pages/Rateios";
-
->>>>>>> a81954500b4feb1c41f9622d5efa371e66cfab16
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -145,11 +135,7 @@ const App = () => (
             } />
 
             {/* Rota do RDO Santos Brasil */}
-<<<<<<< HEAD
             <Route path="/santos-brasil" element={
-=======
-            <Route path="/rdo-santos-brasil" element={
->>>>>>> a81954500b4feb1c41f9622d5efa371e66cfab16
               <ProtectedRoute>
                 <RdoSantosBrasil />
               </ProtectedRoute>
@@ -162,18 +148,13 @@ const App = () => (
               </ProtectedRoute>
             } />
 
-<<<<<<< HEAD
             {/* Rota do módulo de Rateios */}
-=======
-            {/* Rota do módulo de Rateios ← ADICIONE ESTA ROTA */}
->>>>>>> a81954500b4feb1c41f9622d5efa371e66cfab16
             <Route path="/rateios" element={
               <ProtectedRoute>
                 <Rateios />
               </ProtectedRoute>
             } />
 
-<<<<<<< HEAD
             {/* Rotas do módulo de Escalas */}
             <Route path="/escalas" element={
               <ProtectedRoute>
@@ -230,8 +211,6 @@ const App = () => (
               </ProtectedRoute>
             } />
 
-=======
->>>>>>> a81954500b4feb1c41f9622d5efa371e66cfab16
             {/* Redirecionar rotas não encontradas para auth */}
             <Route path="*" element={<Navigate to="/auth" replace />} />
           </Routes>
