@@ -1,4 +1,4 @@
-// src/App.tsx
+// src/App.tsx (Atualizado completo)
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -33,8 +33,18 @@ import RdoSantosBrasil from "./pages/RdoSantosBrasil";
 // Página do módulo de Vistorias
 import Vistorias from "./pages/Vistorias";
 
-// Página do módulo de Rateios ← ADICIONE ESTA IMPORT
+// Página do módulo de Rateios
 import Rateios from "./pages/Rateios";
+
+// Páginas do módulo de Escalas
+import EscalasDashboard from "./pages/escalas/Dashboard";
+import EscalasCalendar from "./pages/escalas/Escalas";
+import Ocorrencias from "./pages/escalas/Ocorrencias";
+import Pessoal from "./pages/escalas/Pessoal";
+import Relatorios from "./pages/escalas/Relatorios";
+import Salarios from "./pages/escalas/Salarios";
+import NovaEscala from "./pages/escalas/NovaEscala"; // NOVA: Import da página de Nova Escala
+import VisualizarEscala from "./pages/escalas/VisualizarEscala"; // NOVA: Import da página de Visualizar Escala
 
 const queryClient = new QueryClient();
 
@@ -125,7 +135,7 @@ const App = () => (
             } />
 
             {/* Rota do RDO Santos Brasil */}
-            <Route path="/rdo-santos-brasil" element={
+            <Route path="/santos-brasil" element={
               <ProtectedRoute>
                 <RdoSantosBrasil />
               </ProtectedRoute>
@@ -138,10 +148,66 @@ const App = () => (
               </ProtectedRoute>
             } />
 
-            {/* Rota do módulo de Rateios ← ADICIONE ESTA ROTA */}
+            {/* Rota do módulo de Rateios */}
             <Route path="/rateios" element={
               <ProtectedRoute>
                 <Rateios />
+              </ProtectedRoute>
+            } />
+
+            {/* Rotas do módulo de Escalas */}
+            <Route path="/escalas" element={
+              <ProtectedRoute>
+                <EscalasCalendar />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/escalas/dashboard" element={
+              <ProtectedRoute>
+                <EscalasDashboard />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/escalas/ocorrencias" element={
+              <ProtectedRoute>
+                <Ocorrencias />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/escalas/pessoal" element={
+              <ProtectedRoute>
+                <Pessoal />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/escalas/relatorios" element={
+              <ProtectedRoute>
+                <Relatorios />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/escalas/salarios" element={
+              <ProtectedRoute>
+                <Salarios />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/escalas/nova" element={ // NOVA: Rota para criar nova escala
+              <ProtectedRoute>
+                <NovaEscala />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/escalas/visualizar/:id" element={ // NOVA: Rota para visualizar escala
+              <ProtectedRoute>
+                <VisualizarEscala />
+              </ProtectedRoute>
+            } />
+
+            {/* Rota para página não encontrada */}
+            <Route path="/404" element={
+              <ProtectedRoute>
+                <NotFound />
               </ProtectedRoute>
             } />
 
