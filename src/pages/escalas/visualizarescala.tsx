@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { EscalasLayout } from '@/components/escalas/EscalasLayout';
+import { EscalasLayout } from '@/components/Escalas/EscalasLayout';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function VisualizarEscala() {

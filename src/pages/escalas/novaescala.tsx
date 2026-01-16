@@ -22,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 
 import { toast } from 'sonner';
-import { EscalasLayout } from '@/components/escalas/EscalasLayout';
+import { EscalasLayout } from '@/components/Escalas/EscalasLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
 
