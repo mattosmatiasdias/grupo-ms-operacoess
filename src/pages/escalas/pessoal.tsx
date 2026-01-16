@@ -51,6 +51,9 @@ const funcoes = [
   'MUNCK',
   'COMBOIO',
   'AJUDANTE',
+  'GUINDASTES',
+  'ONIBUS',
+  'RIGGER',
   'SINALEIRO',
   'ENCARREGADO'
 ];

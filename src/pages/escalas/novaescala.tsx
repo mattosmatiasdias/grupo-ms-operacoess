@@ -28,7 +28,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 /* ===================== CONSTANTES ===================== */
 const FRENTES_SERVICO = [
-  'COQUE', 'PICHE', 'FLUORETO', 'HYDRATO',
+  'COQUE', 'PICHE', 'FLUORETO', 'HYDRO', 'HIDRATO',
   'CARVAO', 'BAUXITA', 'LINGOTE', 'GARAGEM', 'ALBRAS'
 ];
 
@@ -37,7 +37,7 @@ const TURNOS = [
   { value: '19:00-07:00', label: 'Noite (19:00 às 07:00)' }
 ];
 
-const EQUIPAMENTOS = ['CB', 'CV', 'PC', 'ES', 'E', 'F', 'G', 'H', 'CB', 'CDP'];
+const EQUIPAMENTOS = ['CB', 'CV', 'PC', 'ES', 'RE', 'CP', 'CM', 'EP', 'MN', 'RE'];
 const SEM_EQUIPAMENTO = 'SEM_EQUIPAMENTO';
 
 export default function NovaEscala() {
