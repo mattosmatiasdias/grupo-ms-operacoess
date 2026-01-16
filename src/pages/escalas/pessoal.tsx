@@ -37,7 +37,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { EscalasLayout } from '@/components/escalas/EscalasLayout';
+import { EscalasLayout } from '@/components/Escalas/EscalasLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
 
