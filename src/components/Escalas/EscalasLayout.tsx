@@ -1,11 +1,10 @@
-// src/components/escalas/EscalasLayout.tsx
-import { ReactNode, useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+﻿import { ReactNode, useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { 
   Home, Calendar, Users, AlertTriangle, TrendingUp, 
   Menu, X, BarChart3
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface EscalasLayoutProps {
   children: ReactNode;
@@ -19,12 +18,12 @@ export function EscalasLayout({ children, title, subtitle }: EscalasLayoutProps)
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const menuItems = [
-    { icon: Home, label: 'Menu Principal', path: '/', color: 'bg-blue-600 hover:bg-blue-700' },
-    { icon: BarChart3, label: 'Dashboard', path: '/escalas/dashboard', color: 'bg-cyan-600 hover:bg-cyan-700' },
-    { icon: Users, label: 'Pessoal', path: '/escalas/pessoal', color: 'bg-blue-600 hover:bg-blue-700' },
-    { icon: Calendar, label: 'Escalas', path: '/escalas', color: 'bg-purple-600 hover:bg-purple-700' },
-    { icon: AlertTriangle, label: 'Ocorrências', path: '/escalas/ocorrencias', color: 'bg-orange-600 hover:bg-orange-700' },
-    { icon: TrendingUp, label: 'Relatórios', path: '/escalas/relatorios', color: 'bg-green-600 hover:bg-green-700' },
+    { icon: Home, label: "Menu Principal", path: "/", color: "bg-blue-600 hover:bg-blue-700" },
+    { icon: BarChart3, label: "Dashboard", path: "/escalas/dashboard", color: "bg-cyan-600 hover:bg-cyan-700" },
+    { icon: Users, label: "Pessoal", path: "/escalas/pessoal", color: "bg-blue-600 hover:bg-blue-700" },
+    { icon: Calendar, label: "Escalas", path: "/escalas", color: "bg-purple-600 hover:bg-purple-700" },
+    { icon: AlertTriangle, label: "Ocorrências", path: "/escalas/ocorrencias", color: "bg-orange-600 hover:bg-orange-700" },
+    { icon: TrendingUp, label: "Relatórios", path: "/escalas/relatorios", color: "bg-green-600 hover:bg-green-700" },
   ];
 
   useEffect(() => {
@@ -52,7 +51,7 @@ export function EscalasLayout({ children, title, subtitle }: EscalasLayoutProps)
           </div>
           <Button
             variant="ghost"
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/")}
             className="text-blue-300 hover:bg-blue-800/50"
             title="Menu Principal"
           >
@@ -86,7 +85,7 @@ export function EscalasLayout({ children, title, subtitle }: EscalasLayoutProps)
                 <Button
                   key={item.path}
                   onClick={() => navigate(item.path)}
-                  className={`w-full h-14 ${isActive ? 'bg-cyan-600/30 border border-cyan-500/50' : 'bg-white/5 hover:bg-white/10'} text-white font-medium rounded-lg transition-all duration-300 hover:shadow-md`}
+                  className={`w-full h-14 ${isActive ? "bg-cyan-600/30 border border-cyan-500/50" : "bg-white/5 hover:bg-white/10"} text-white font-medium rounded-lg transition-all duration-300 hover:shadow-md`}
                 >
                   <div className="flex items-center justify-start space-x-3 w-full">
                     <item.icon className="h-4 w-4" />
@@ -100,7 +99,7 @@ export function EscalasLayout({ children, title, subtitle }: EscalasLayoutProps)
           {/* Footer */}
           <div className="p-4 border-t border-blue-600/30">
             <Button
-              onClick={() => navigate('/')}
+              onClick={() => navigate("/")}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 gap-2"
             >
               <Home className="h-4 w-4" />
