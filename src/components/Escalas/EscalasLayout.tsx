@@ -1,4 +1,5 @@
-﻿import { ReactNode, useState, useEffect } from "react";
+﻿// src/components/Escalas/EscalasLayout.tsx
+import { ReactNode, useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { 
   Home, Calendar, Users, AlertTriangle, TrendingUp, 
@@ -17,13 +18,14 @@ export function EscalasLayout({ children, title, subtitle }: EscalasLayoutProps)
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // CAMINHOS ATUALIZADOS (Removido prefixo /escalas)
   const menuItems = [
     { icon: Home, label: "Menu Principal", path: "/", color: "bg-blue-600 hover:bg-blue-700" },
-    { icon: BarChart3, label: "Dashboard", path: "/escalas/dashboard", color: "bg-cyan-600 hover:bg-cyan-700" },
-    { icon: Users, label: "Pessoal", path: "/escalas/pessoal", color: "bg-blue-600 hover:bg-blue-700" },
-    { icon: Calendar, label: "Escalas", path: "/escalas", color: "bg-purple-600 hover:bg-purple-700" },
-    { icon: AlertTriangle, label: "Ocorrências", path: "/escalas/ocorrencias", color: "bg-orange-600 hover:bg-orange-700" },
-    { icon: TrendingUp, label: "Relatórios", path: "/escalas/relatorios", color: "bg-green-600 hover:bg-green-700" },
+    { icon: BarChart3, label: "Dashboard", path: "/dashboard", color: "bg-cyan-600 hover:bg-cyan-700" },
+    { icon: Users, label: "Pessoal", path: "/pessoal", color: "bg-blue-600 hover:bg-blue-700" },
+    { icon: Calendar, label: "Escalas", path: "/calendario", color: "bg-purple-600 hover:bg-purple-700" },
+    { icon: AlertTriangle, label: "Ocorrências", path: "/ocorrencias", color: "bg-orange-600 hover:bg-orange-700" },
+    { icon: TrendingUp, label: "Relatórios", path: "/relatorios", color: "bg-green-600 hover:bg-green-700" },
   ];
 
   useEffect(() => {

@@ -1,6 +1,7 @@
-// src/pages/escalas/Pessoal.tsx
+// src/pages/Pessoal.tsx
 import { useState, useEffect } from 'react';
-import { Plus, Search, MoreHorizontal, Edit, Trash2, Eye, Upload, DollarSign } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, Edit, Trash2, Eye, Upload, DollarSign, TrendingUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -39,7 +40,6 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { EscalasLayout } from '@/components/Escalas/EscalasLayout';
 import { supabase } from '@/integrations/supabase/client';
-import { Link } from 'react-router-dom';
 
 // Funções baseadas no Excel
 const funcoes = [
@@ -61,6 +61,7 @@ const funcoes = [
 const turmas = ['A', 'B', 'C', 'D', 'ADM', 'AJUD'];
 
 export default function Pessoal() {
+  const navigate = useNavigate(); // Hook de navegação
   const [funcionarios, setFuncionarios] = useState<any[]>([]);
   const [configSalarios, setConfigSalarios] = useState<any[]>([]);
   const [search, setSearch] = useState('');
@@ -82,6 +83,10 @@ export default function Pessoal() {
     email: '',
     observacoes: '',
   });
+
+  const handleImportExcel = () => {
+    toast.info('Funcionalidade de importação será implementada em breve');
+  };
 
   // Carregar funcionários e configurações de salário
   useEffect(() => {
@@ -293,15 +298,15 @@ export default function Pessoal() {
             Importar do Excel
           </Button>
 
-          <Link to="/escalas/salarios">
-            <Button 
-              variant="outline"
-              className="bg-purple-600/20 border-purple-400/30 text-purple-300 hover:bg-purple-600/30 hover:text-purple-200 gap-2"
-            >
-              <DollarSign className="h-4 w-4" />
-              Configurar Salários
-            </Button>
-          </Link>
+          {/* Link removido para usar navegação programática se necessário, ou manter para Salários */}
+          <Button
+            variant="outline"
+            onClick={() => navigate('/salarios')}
+            className="bg-purple-600/20 border-purple-400/30 text-purple-300 hover:bg-purple-600/30 hover:text-purple-200 gap-2"
+          >
+            <DollarSign className="h-4 w-4" />
+            Configurar Salários
+          </Button>
         </div>
 
         {/* Filters */}
@@ -483,6 +488,16 @@ export default function Pessoal() {
                                 <Edit className="h-4 w-4 mr-2" />
                                 Editar
                               </DropdownMenuItem>
+                              
+                              {/* NOVO BOTÃO: VER ANÁLISE */}
+                              <DropdownMenuItem 
+                                onClick={() => navigate(`/analise/${funcionario.id}`)}
+                                className="text-cyan-300 hover:bg-cyan-500/20"
+                              >
+                                <TrendingUp className="h-4 w-4 mr-2" />
+                                Ver Análise
+                              </DropdownMenuItem>
+
                               <DropdownMenuItem 
                                 onClick={() => handleToggleStatus(funcionario)}
                                 className="text-white hover:bg-blue-500/20"
@@ -694,8 +709,3 @@ export default function Pessoal() {
     </EscalasLayout>
   );
 }
-
-// Função placeholder para importação
-const handleImportExcel = () => {
-  toast.info('Funcionalidade de importação será implementada em breve');
-};
