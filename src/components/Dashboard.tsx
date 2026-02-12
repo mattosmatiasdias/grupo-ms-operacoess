@@ -1,10 +1,14 @@
-﻿// src/components/Dashboard.tsx (versão corrigida)
+﻿// src/components/Dashboard.tsx
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge'; // Import do Badge
-import { Bell, FileText, Ship, LogOut, BarChart3, Menu, X, Calendar, ClipboardCheck, Car, AlertTriangle, Building2, Percent } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Bell, FileText, Ship, LogOut, BarChart3, Menu, X, 
+  Calendar, ClipboardCheck, Car, AlertTriangle, Building2, 
+  Percent, Activity, Clock, ArrowUpRight, LucideIcon 
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 
@@ -21,150 +25,316 @@ const Dashboard = () => {
   const menuItems = [
     {
       icon: FileText,
-      label: 'RELATÓRIO DE TRANSPORTE',
+      label: 'Relatório Transporte',
       path: '/relatorio-transporte',
-      color: 'bg-blue-500 hover:bg-blue-600',
-      iconBg: 'bg-blue-500/20',
-      iconColor: 'text-blue-300'
+      color: 'text-blue-400',
+      bgHover: 'hover:bg-blue-500/10',
     },
     {
       icon: Ship,
-      label: 'NAVIOS',
+      label: 'Navios',
       path: '/navios',
-      color: 'bg-purple-600 hover:bg-purple-700',
-      iconBg: 'bg-purple-500/20',
-      iconColor: 'text-purple-300'
+      color: 'text-purple-400',
+      bgHover: 'hover:bg-purple-500/10',
     },
     {
       icon: Calendar,
-      label: 'ESCALAS',
+      label: 'Escalas',
       path: '/escalas',
-      color: 'bg-cyan-600 hover:bg-cyan-700',
-      iconBg: 'bg-cyan-500/20',
-      iconColor: 'text-cyan-300'
+      color: 'text-cyan-400',
+      bgHover: 'hover:bg-cyan-500/10',
     },
     {
       icon: ClipboardCheck,
-      label: 'VISTORIAS',
+      label: 'Vistorias',
       path: '/vistorias',
-      color: 'bg-teal-600 hover:bg-teal-700',
-      iconBg: 'bg-teal-500/20',
-      iconColor: 'text-teal-300'
+      color: 'text-teal-400',
+      bgHover: 'hover:bg-teal-500/10',
     },
     {
       icon: Car,
-      label: 'MASTER DRIVE',
+      label: 'Master Drive',
       path: '/master-drive',
-      color: 'bg-indigo-600 hover:bg-indigo-700',
-      iconBg: 'bg-indigo-500/20',
-      iconColor: 'text-indigo-300'
+      color: 'text-indigo-400',
+      bgHover: 'hover:bg-indigo-500/10',
     },
     {
       icon: AlertTriangle,
-      label: 'OCORRÊNCIAS',
+      label: 'Ocorrências',
       path: '/ocorrencias',
-      color: 'bg-orange-600 hover:bg-orange-700',
-      iconBg: 'bg-orange-500/20',
-      iconColor: 'text-orange-300'
+      color: 'text-orange-400',
+      bgHover: 'hover:bg-orange-500/10',
     },
     {
       icon: Percent,
-      label: 'RATEIOS',
+      label: 'Rateios',
       path: '/rateios',
-      color: 'bg-amber-600 hover:bg-amber-700',
-      iconBg: 'bg-amber-500/20',
-      iconColor: 'text-amber-300'
+      color: 'text-amber-400',
+      bgHover: 'hover:bg-amber-500/10',
     },
     {
       icon: Bell,
-      label: 'NOTIFICAÇÕES',
+      label: 'Notificações',
       path: '/notificacao',
-      color: 'bg-violet-600 hover:bg-violet-700',
-      iconBg: 'bg-violet-500/20',
-      iconColor: 'text-violet-300',
+      color: 'text-violet-400',
+      bgHover: 'hover:bg-violet-500/10',
       hasNotification: hasUnread
     },
     {
       icon: Building2,
-      label: 'RDO SANTOS BRASIL',
+      label: 'RDO Santos Brasil',
       path: '/santos-brasil',
-      color: 'bg-red-600 hover:bg-red-700',
-      iconBg: 'bg-red-500/20',
-      iconColor: 'text-red-300'
+      color: 'text-red-400',
+      bgHover: 'hover:bg-red-500/10',
     },
     {
       icon: BarChart3,
-      label: 'VISUAIS E DASHBOARD',
+      label: 'Visuais e Dashboard',
       path: '/visuais',
-      color: 'bg-green-600 hover:bg-green-700',
-      iconBg: 'bg-green-500/20',
-      iconColor: 'text-green-300'
+      color: 'text-emerald-400',
+      bgHover: 'hover:bg-emerald-500/10',
     }
   ];
 
-  const quickActions = [
-    {
-      icon: FileText,
-      label: 'NOVO LANÇAMENTO',
-      path: '/novo-lancamento',
-      color: 'bg-cyan-500 hover:bg-cyan-600',
-      iconBg: 'bg-cyan-400/20'
-    },
-    {
-      icon: Building2,
-      label: 'NOVO RDO SANTOS BRASIL',
-      path: '/santos-brasil/novo',
-      color: 'bg-red-500 hover:bg-red-600',
-      iconBg: 'bg-red-400/20'
-    }
+  // Dados de Estatísticas
+  const statsData = [
+    { label: 'Operações Hoje', value: '12', change: '+2', icon: FileText, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+    { label: 'Navios Ativos', value: '3', change: 'Estável', icon: Ship, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+    { label: 'Rateios Pendentes', value: '8', change: '-1', icon: Percent, color: 'text-amber-500', bg: 'bg-amber-500/10' },
   ];
+
+  // Dados de Atividade Recente com Mapeamento de Ícones para evitar erros JSX
+  const rawRecentActivity = [
+    { title: 'Novo relatório de transporte', sub: 'Operação HYDRO - Área 82', time: '2h', type: 'file' as const, colorClass: 'bg-blue-500/10 text-blue-400' },
+    { title: 'Rateio processado', sub: 'BM-001 - ALBRAS COQUE', time: '3h', type: 'percent' as const, colorClass: 'bg-amber-500/10 text-amber-400' },
+    { title: 'Navio atualizado', sub: 'LCA/UFO MAY2010 - 0.5%', time: '4h', type: 'ship' as const, colorClass: 'bg-purple-500/10 text-purple-400' },
+  ];
+
+  // Mapeamento seguro dos ícones
+  const recentActivity = rawRecentActivity.map(item => ({
+    ...item,
+    Icon: item.type === 'file' ? FileText : (item.type === 'ship' ? Ship : Percent)
+  }));
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* Header Mobile */}
-      <div className="lg:hidden bg-blue-900/80 backdrop-blur-md shadow-lg sticky top-0 z-10">
-        <div className="flex justify-between items-center px-4 py-4">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-blue-300 hover:bg-blue-800/50"
-              title="Abrir menu"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-xl font-bold text-white">Gestão de Operações</h1>
-              <p className="text-sm text-blue-300">{userProfile?.full_name || 'Usuário'}</p>
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-blue-500/30">
+      {/* Layout Desktop */}
+      <div className="hidden lg:flex min-h-screen">
+        {/* Sidebar Desktop */}
+        <div className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col flex-shrink-0">
+          <div className="p-6 border-b border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-600/20 p-2 rounded-lg">
+                <BarChart3 className="w-6 h-6 text-blue-500" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-white tracking-tight leading-none">Gestão Ops</h1>
+                <p className="text-xs text-slate-500 mt-1">VERSÃO: 22.4.1</p>
+              </div>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            onClick={handleSignOut}
-            className="text-blue-300 hover:bg-blue-800/50"
-            title="Sair do sistema"
-          >
-            <LogOut className="h-5 w-5" />
-          </Button>
+
+          <div className="flex-1 p-4 overflow-y-auto space-y-1">
+            <div className="px-2 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Módulos
+            </div>
+            {menuItems.map((item) => (
+              <Button
+                key={item.path}
+                onClick={() => navigate(item.path)}
+                variant="ghost"
+                className={`w-full justify-start h-10 px-3 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors relative group ${item.bgHover}`}
+              >
+                <item.icon className={`mr-3 h-4 w-4 ${item.color}`} />
+                <span className="text-sm font-medium">{item.label}</span>
+                {item.hasNotification && (
+                  <span className="ml-auto flex h-2 w-2 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                  </span>
+                )}
+              </Button>
+            ))}
+          </div>
+
+          <div className="p-4 border-t border-slate-800 bg-slate-900/50">
+            <div className="flex items-center gap-3 px-2 mb-4">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-blue-500/20">
+                {userProfile?.full_name?.substring(0,2).toUpperCase() || 'US'}
+              </div>
+              <div className="flex flex-col overflow-hidden">
+                <span className="text-sm font-medium text-white truncate leading-tight">{userProfile?.full_name || 'Usuário'}</span>
+                <span className="text-xs text-slate-500 truncate">Operador</span>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              onClick={handleSignOut}
+              className="w-full border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white justify-start h-9 text-sm"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sair do Sistema
+            </Button>
+          </div>
+        </div>
+
+        {/* Main Content Desktop */}
+        <div className="flex-1 flex flex-col min-w-0 bg-slate-950/50">
+          <div className="sticky top-0 z-20 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50 px-8 py-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-white">Visão Geral</h2>
+              <p className="text-xs text-slate-400">Resumo das operações diárias</p>
+            </div>
+            <div className="flex items-center gap-3">
+               <div className="text-right hidden sm:block">
+                 <div className="text-sm font-medium text-white">{new Date().toLocaleDateString('pt-BR')}</div>
+                 <div className="text-xs text-slate-500">{new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</div>
+               </div>
+               <Button variant="ghost" size="icon" className="relative text-slate-400 hover:text-white hover:bg-slate-800">
+                 <Bell className="h-5 w-5" />
+                 {hasUnread && (
+                   <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full border-2 border-slate-950"></span>
+                 )}
+               </Button>
+            </div>
+          </div>
+
+          <main className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="rounded-xl bg-gradient-to-r from-blue-900/40 to-slate-900/40 border border-blue-800/30 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  Bem-vindo, <span className="text-blue-400">{userProfile?.full_name?.split(' ')[0] || 'Usuário'}</span>
+                </h3>
+                <p className="text-sm text-slate-400 mt-1">Sistema de gestão de operações portuárias integradas.</p>
+              </div>
+              <div className="flex gap-2">
+                 <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20 h-9">
+                   <Activity className="mr-2 h-4 w-4" /> Status Operacional
+                 </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {statsData.map((stat, idx) => (
+                <Card key={idx} className="bg-slate-900/40 border-slate-800 p-4 flex items-center justify-between hover:border-slate-700 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className={`p-2.5 rounded-lg ${stat.bg} ${stat.color}`}>
+                      <stat.icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{stat.label}</p>
+                      <p className="text-xl font-bold text-white mt-0.5">{stat.value}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${stat.change.startsWith('+') ? 'bg-green-500/10 text-green-400' : 'bg-slate-800 text-slate-400'}`}>
+                      {stat.change}
+                    </span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
+                <Card className="bg-slate-900/40 border-slate-800 shadow-sm">
+                  <CardHeader className="pb-3 border-b border-slate-800/50 px-6">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-slate-100 text-base font-medium">Atividade Recente</CardTitle>
+                      <Button variant="ghost" size="sm" className="text-xs text-blue-400 hover:text-blue-300 h-auto p-0">Ver tudo</Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4 space-y-1">
+                    {recentActivity.map((activity, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-800/40 transition-colors group cursor-default">
+                        <div className="flex items-center gap-4 overflow-hidden">
+                          <div className={`p-2 rounded-md ${activity.colorClass}`}>
+                             <activity.Icon className="h-4 w-4"/>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-200 group-hover:text-white truncate">{activity.title}</p>
+                            <p className="text-xs text-slate-500 truncate">{activity.sub}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                           <Badge variant="outline" className="bg-slate-900/50 border-slate-700 text-slate-400 text-xs py-0 h-5 px-2">
+                             {activity.time}
+                           </Badge>
+                           <ArrowUpRight className="h-4 w-4 text-slate-600 group-hover:text-slate-400 transition-colors"/>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="space-y-6">
+                 <Card className="bg-gradient-to-br from-indigo-900/20 to-slate-900/40 border-indigo-800/30 p-5 text-center">
+                    <div className="w-12 h-12 bg-indigo-500/20 rounded-full flex items-center justify-center mx-auto mb-3 text-indigo-400">
+                       <BarChart3 className="w-6 h-6" />
+                    </div>
+                    <h4 className="text-white font-medium">Visuais Avançados</h4>
+                    <p className="text-xs text-slate-400 mt-2 mb-4 leading-relaxed">
+                      Acesse gráficos detalhados de produtividade e rateios por centro de custo.
+                    </p>
+                    <Button onClick={() => navigate('/visuais')} variant="outline" className="w-full border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 text-xs h-8">
+                       Abrir Dashboard
+                    </Button>
+                 </Card>
+
+                 <Card className="bg-slate-900/40 border-slate-800 p-0 overflow-hidden">
+                    <div className="bg-slate-800/50 px-4 py-2 border-b border-slate-800">
+                        <h4 className="text-xs font-semibold text-slate-300 uppercase">Acesso Rápido</h4>
+                    </div>
+                    <div className="p-2">
+                        <Button onClick={() => navigate('/novo-lancamento')} variant="ghost" className="w-full justify-start h-9 px-3 text-slate-400 hover:text-white hover:bg-slate-800">
+                           <FileText className="mr-2 h-3.5 w-3.5 text-blue-400" /> Novo Relatório
+                        </Button>
+                        <Button onClick={() => navigate('/ocorrencias')} variant="ghost" className="w-full justify-start h-9 px-3 text-slate-400 hover:text-white hover:bg-slate-800">
+                           <AlertTriangle className="mr-2 h-3.5 w-3.5 text-orange-400" /> Registrar Ocorrência
+                        </Button>
+                    </div>
+                 </Card>
+              </div>
+            </div>
+          </main>
         </div>
       </div>
 
-      {/* Sidebar Mobile */}
-      {sidebarOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-blue-900/95 backdrop-blur-sm">
-          <div className="flex justify-between items-center p-4 border-b border-blue-600/30">
-            <h2 className="text-xl font-bold text-white">Menu</h2>
-            <Button
-              variant="ghost"
-              onClick={() => setSidebarOpen(false)}
-              className="text-white hover:bg-white/20"
-            >
-              <X className="h-6 w-6" />
+      {/* Mobile Layout */}
+      <div className="lg:hidden flex flex-col min-h-screen bg-slate-950">
+        <div className="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-30 flex items-center justify-between shadow-md">
+          <div className="flex items-center gap-3">
+            <Button onClick={() => setSidebarOpen(true)} variant="ghost" size="icon" className="text-white hover:bg-slate-800">
+              <Menu className="w-5 h-5" />
+            </Button>
+            <div className="flex items-center gap-2">
+               <BarChart3 className="text-blue-500 w-5 h-5" />
+               <h1 className="text-lg font-bold text-white leading-tight">Gestão Ops</h1>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="relative text-slate-400 hover:text-white">
+              <Bell className="h-5 w-5" />
+              {hasUnread && (
+                <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full border border-slate-900"></span>
+              )}
+            </Button>
+            <Button onClick={handleSignOut} variant="ghost" size="icon" className="text-slate-400 hover:text-red-400 hover:bg-red-500/10">
+              <LogOut className="h-5 w-5" />
             </Button>
           </div>
-          <div className="p-4 space-y-3 overflow-y-auto h-[calc(100%-80px)]">
-            {/* Menu Principal Mobile */}
-            <div className="space-y-2">
+        </div>
+
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="flex justify-between items-center p-4 border-b border-slate-800">
+              <h2 className="text-white font-bold text-lg">Menu de Navegação</h2>
+              <Button onClick={() => setSidebarOpen(false)} variant="ghost" size="icon" className="text-white hover:bg-slate-800">
+                <X className="w-6 h-6" />
+              </Button>
+            </div>
+            <div className="p-4 space-y-2 overflow-y-auto h-[calc(100%-80px)]">
               {menuItems.map((item) => (
                 <Button
                   key={item.path}
@@ -172,282 +342,64 @@ const Dashboard = () => {
                     navigate(item.path);
                     setSidebarOpen(false);
                   }}
-                  className={`w-full h-16 ${item.color} text-white text-lg font-semibold rounded-xl transition-all duration-300 relative hover:shadow-lg hover:scale-[1.02]`}
+                  className={`w-full justify-start h-12 px-4 ${item.bgHover} bg-slate-900 text-slate-300 hover:text-white border border-slate-800 rounded-lg transition-all`}
                 >
-                  <div className="flex items-center justify-start space-x-4 w-full">
-                    <div className={`${item.iconBg} p-3 rounded-lg`}>
-                      <item.icon className={`h-5 w-5 ${item.iconColor}`} />
-                    </div>
-                    <span className="text-left">{item.label}</span>
-                  </div>
+                  <item.icon className={`mr-3 h-5 w-5 ${item.color}`} />
+                  <span className="text-sm font-medium">{item.label}</span>
                   {item.hasNotification && (
-                    <span className="absolute top-3 right-3 flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                    </span>
+                    <span className="ml-auto h-2 w-2 rounded-full bg-red-500"></span>
                   )}
                 </Button>
               ))}
             </div>
-            
-            {/* Separador */}
-            <div className="my-4 border-t border-blue-600/30"></div>
-            
-            {/* Ações Rápidas Mobile */}
-            <div className="space-y-2">
-              <h3 className="text-blue-200 font-semibold text-sm uppercase tracking-wider mb-2">Ações Rápidas</h3>
-              {quickActions.map((action) => (
-                <Button
-                  key={action.path}
-                  onClick={() => {
-                    navigate(action.path);
-                    setSidebarOpen(false);
-                  }}
-                  className={`w-full h-14 ${action.color} text-white font-semibold rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-[1.02]`}
-                >
-                  <div className="flex items-center justify-start space-x-3 w-full">
-                    <div className={`${action.iconBg} p-2 rounded-lg`}>
-                      <action.icon className="h-4 w-4 text-white" />
-                    </div>
-                    <span>{action.label}</span>
-                  </div>
-                </Button>
-              ))}
-            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Desktop Layout */}
-      <div className="hidden lg:flex min-h-screen">
-        {/* Sidebar Desktop */}
-        <div className="w-80 bg-blue-900/30 backdrop-blur-sm border-r border-blue-600/30 flex flex-col">
-          {/* Sidebar Header */}
-          <div className="p-6 border-b border-blue-600/30">
-            <div className="flex items-center space-x-4">
-              <div className="bg-blue-500/20 p-3 rounded-xl">
-                <BarChart3 className="h-8 w-8 text-blue-300" />
-              </div>
+        <div className="p-4 space-y-6 pb-20">
+            <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-white">Gestão de Operações</h1>
-                <p className="text-blue-300 text-sm">(versão 20.00)</p>
+                <p className="text-xs text-slate-500 uppercase font-bold mb-1">Total Horas (Hoje)</p>
+                <p className="text-2xl font-bold text-white">124.5h</p>
+              </div>
+              <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
+                <Clock className="w-5 h-5" />
               </div>
             </div>
-          </div>
 
-          {/* User Info */}
-          <div className="p-6 border-b border-blue-600/30">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-blue-200/30">
-              <p className="text-white font-semibold text-lg">{userProfile?.full_name || 'Usuário'}</p>
-              <p className="text-blue-300 text-sm mt-1">Status: <span className="text-green-400 font-medium">Ativo</span></p>
-              <p className="text-blue-300 text-sm mt-1">Último acesso: {new Date().toLocaleDateString('pt-BR')}</p>
-            </div>
-          </div>
-
-          {/* Main Menu */}
-          <div className="flex-1 p-6 space-y-3 overflow-y-auto">
-            <h3 className="text-blue-200 font-semibold text-sm uppercase tracking-wider mb-4">Menu Principal</h3>
-            {menuItems.map((item) => (
-              <Button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                className={`w-full h-16 ${item.color} text-white text-lg font-semibold rounded-xl transition-all duration-300 relative group hover:shadow-lg hover:scale-[1.02]`}
-              >
-                <div className="flex items-center justify-start space-x-4 w-full">
-                  <div className={`${item.iconBg} p-3 rounded-lg group-hover:bg-white/30 transition-colors`}>
-                    <item.icon className={`h-5 w-5 ${item.iconColor}`} />
-                  </div>
-                  <span className="text-left">{item.label}</span>
-                </div>
-                {item.hasNotification && (
-                  <span className="absolute top-4 right-4 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                  </span>
-                )}
-              </Button>
-            ))}
-          </div>
-
-          {/* Quick Actions */}
-          <div className="p-6 border-t border-blue-600/30">
-            <h3 className="text-blue-200 font-semibold text-sm uppercase tracking-wider mb-4">Ações Rápidas</h3>
-            {quickActions.map((action) => (
-              <Button
-                key={action.path}
-                onClick={() => navigate(action.path)}
-                className={`w-full h-14 ${action.color} text-white font-semibold rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-[1.02]`}
-              >
-                <div className="flex items-center justify-start space-x-3 w-full">
-                  <div className={`${action.iconBg} p-2 rounded-lg`}>
-                    <action.icon className="h-4 w-4 text-white" />
-                  </div>
-                  <span>{action.label}</span>
-                </div>
-              </Button>
-            ))}
-          </div>
-
-          {/* Logout */}
-          <div className="p-6 border-t border-blue-600/30">
-            <Button
-              variant="outline"
-              onClick={handleSignOut}
-              className="w-full text-blue-300 hover:text-white hover:bg-blue-500/20 border-blue-300/30 rounded-xl transition-all duration-300 py-3 hover:shadow"
-            >
-              <LogOut className="h-5 w-5 mr-2" />
-              Sair do Sistema
-            </Button>
-          </div>
-        </div>
-
-        {/* Main Content Desktop */}
-        <div className="flex-1 flex flex-col">
-          {/* Welcome Section */}
-          <div className="bg-blue-800/30 backdrop-blur-sm border-b border-blue-600/30 p-8">
-            <div className="max-w-4xl">
-              <h2 className="text-3xl font-bold text-white mb-4">
-                Bem-vindo, <span className="text-blue-300">{userProfile?.full_name || 'Usuário'}</span>!
-              </h2>
-              <p className="text-lg text-blue-200">
-                Sistema de gestão de operações, navios e relatórios integrados
-              </p>
-            </div>
-          </div>
-
-          {/* Stats Cards */}
-          <div className="p-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <Card className="bg-white/10 backdrop-blur-sm border-blue-200/30 hover:shadow-lg transition-all hover:scale-[1.02]">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-blue-200">Operações Hoje</p>
-                      <p className="text-3xl font-bold text-white">12</p>
-                      <p className="text-xs text-blue-300 mt-1">+2 em relação a ontem</p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-blue-500/20">
-                      <FileText className="h-6 w-6 text-blue-300" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-sm border-blue-200/30 hover:shadow-lg transition-all hover:scale-[1.02]">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-blue-200">Navios Ativos</p>
-                      <p className="text-3xl font-bold text-white">3</p>
-                      <p className="text-xs text-blue-300 mt-1">Todos em operação</p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-purple-500/20">
-                      <Ship className="h-6 w-6 text-purple-300" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-sm border-blue-200/30 hover:shadow-lg transition-all hover:scale-[1.02]">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-blue-200">Rateios Pendentes</p>
-                      <p className="text-3xl font-bold text-white">8</p>
-                      <p className="text-xs text-blue-300 mt-1">Aguardando processamento</p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-amber-500/20">
-                      <Percent className="h-6 w-6 text-amber-300" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-2 gap-3">
+              {menuItems.slice(0, 6).map((item) => (
+                 <Card key={item.path} className="bg-slate-900/40 border-slate-800 hover:border-slate-600 transition-colors cursor-pointer group" onClick={() => navigate(item.path)}>
+                    <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
+                       <div className={`p-2 rounded-lg ${item.bgHover} ${item.color} group-hover:scale-110 transition-transform`}>
+                         <item.icon className="w-6 h-6" />
+                       </div>
+                       <span className="text-xs font-semibold text-slate-300 group-hover:text-white">{item.label}</span>
+                    </CardContent>
+                 </Card>
+              ))}
             </div>
 
-            {/* Recent Activity */}
-            <Card className="bg-white/10 backdrop-blur-sm border-blue-200/30">
-              <CardHeader className="pb-3 border-b border-blue-200/30">
-                <CardTitle className="text-xl font-semibold text-white">Atividade Recente</CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
-                    <div className="flex items-center space-x-4">
-                      <div className="bg-blue-500/20 p-3 rounded-lg">
-                        <FileText className="h-4 w-4 text-blue-300" />
-                      </div>
-                      <div>
-                        <p className="text-white font-medium">Novo relatório de transporte</p>
-                        <p className="text-sm text-blue-300">Operação HYDRO - Área 82</p>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="bg-blue-500/10 text-blue-300 border-blue-300/30 text-xs">
-                      há 2 horas
-                    </Badge>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
-                    <div className="flex items-center space-x-4">
-                      <div className="bg-amber-500/20 p-3 rounded-lg">
-                        <Percent className="h-4 w-4 text-amber-300" />
-                      </div>
-                      <div>
-                        <p className="text-white font-medium">Rateio processado</p>
-                        <p className="text-sm text-blue-300">BM-001 - ALBRAS COQUE</p>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="bg-amber-500/10 text-amber-300 border-amber-300/30 text-xs">
-                      há 3 horas
-                    </Badge>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
-                    <div className="flex items-center space-x-4">
-                      <div className="bg-purple-500/20 p-3 rounded-lg">
-                        <Ship className="h-4 w-4 text-purple-300" />
-                      </div>
-                      <div>
-                        <p className="text-white font-medium">Navio atualizado</p>
-                        <p className="text-sm text-blue-300">LCA/UFO MAY2010 - 0.5%</p>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="bg-purple-500/10 text-purple-300 border-purple-300/30 text-xs">
-                      há 4 horas
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
+            <Card className="bg-slate-900/40 border-slate-800">
+               <CardHeader className="px-4 py-3 border-b border-slate-800/50">
+                  <CardTitle className="text-sm font-medium text-slate-300">Recentes</CardTitle>
+               </CardHeader>
+               <CardContent className="p-0">
+                  {recentActivity.map((activity, idx) => (
+                     <div key={idx} className="p-3 border-b border-slate-800/50 last:border-0 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                           <div className={`p-1.5 rounded ${activity.colorClass}`}>
+                              <activity.Icon className="h-3.5 w-3.5"/>
+                           </div>
+                           <div className="flex flex-col">
+                              <span className="text-xs font-medium text-white">{activity.title}</span>
+                              <span className="text-[10px] text-slate-500">{activity.sub}</span>
+                           </div>
+                        </div>
+                        <span className="text-[10px] text-slate-500 bg-slate-900 px-1.5 py-0.5 rounded">{activity.time}</span>
+                     </div>
+                  ))}
+               </CardContent>
             </Card>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Content (quando sidebar fechada) */}
-      <div className="lg:hidden p-4">
-        <div className="space-y-4">
-          {menuItems.map((item) => (
-            <Card key={item.path} className="bg-white/10 backdrop-blur-sm border-blue-200/30">
-              <CardContent className="p-0">
-                <Button
-                  onClick={() => navigate(item.path)}
-                  className={`w-full h-16 ${item.color} text-white text-lg font-semibold rounded-lg relative hover:shadow-lg`}
-                >
-                  <div className="flex items-center justify-start space-x-3 w-full px-4">
-                    <div className={`${item.iconBg} p-3 rounded-lg`}>
-                      <item.icon className={`h-5 w-5 ${item.iconColor}`} />
-                    </div>
-                    <span className="text-left">{item.label}</span>
-                  </div>
-                  {item.hasNotification && (
-                    <span className="absolute top-3 right-3 flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                    </span>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
         </div>
       </div>
     </div>

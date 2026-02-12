@@ -2,16 +2,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { useNotifications } from '@/hooks/useNotifications';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from "@/components/ui/switch";
-import { Badge } from '@/components/ui/badge';
-import { Menu, X, LogOut, Bell, ArrowLeft, Ship, BarChart3, Calendar, Anchor, Package, ChevronDown } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { 
+  Menu, X, LogOut, ArrowLeft, Ship, BarChart3, 
+  Calendar, Anchor, Package, ChevronDown, Plus, Loader2, 
+  Activity, Save 
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface ProducaoDia {
   data: string;
@@ -31,90 +36,28 @@ const tiposCarga = [
 const EditarNavio = () => {
   const { id: navioId } = useParams();
   const { userProfile, signOut } = useAuth();
-  const { hasUnread } = useNotifications();
   const { toast } = useToast();
   const navigate = useNavigate();
   
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState<any>({});
-  const [producaoPorDia, setProducaoPorDia] = useState<ProducaoDia[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cargaDropdownOpen, setCargaDropdownOpen] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    nome_navio: '',
+    carga: '',
+    berco: '',
+    quantidade_prevista: '',
+    cbs_total: '',
+    media_cb: '',
+    inicio_operacao: '',
+    final_operacao: '',
+    concluido: false
+  });
 
-  const fetchNavio = useCallback(async () => {
-    if (!navioId) return;
-    setLoading(true);
-    
-    try {
-      const { data: navioData, error: navioError } = await supabase
-        .from('navios')
-        .select('*')
-        .eq('id', navioId)
-        .single();
-      
-      if (navioError || !navioData) {
-        toast({ 
-          title: "Erro", 
-          description: "Navio não encontrado.", 
-          variant: "destructive" 
-        });
-        navigate('/navios');
-        return;
-      }
-
-      navioData.inicio_operacao = navioData.inicio_operacao 
-        ? new Date(navioData.inicio_operacao).toISOString().slice(0, 16) 
-        : '';
-      navioData.final_operacao = navioData.final_operacao 
-        ? new Date(navioData.final_operacao).toISOString().slice(0, 16) 
-        : '';
-      setFormData(navioData);
-
-      const { data: producaoData, error: producaoError } = await supabase
-        .from('registros_producao')
-        .select('data, tons_t1, tons_t2, tons_t3, tons_t4')
-        .eq('navio_id', navioId)
-        .order('data', { ascending: true });
-
-      if (!producaoError && producaoData) {
-        const producaoAgrupada = producaoData.reduce((acc: {[key: string]: number}, registro) => {
-          const data = registro.data;
-          const totalDia = (registro.tons_t1 || 0) + (registro.tons_t2 || 0) + 
-                          (registro.tons_t3 || 0) + (registro.tons_t4 || 0);
-          
-          if (!acc[data]) acc[data] = 0;
-          acc[data] += totalDia;
-          return acc;
-        }, {});
-
-        const producaoArray = Object.entries(producaoAgrupada).map(([data, total_tons]) => ({
-          data: new Date(data).toLocaleDateString('pt-BR'),
-          total_tons: Number(total_tons.toFixed(3))
-        }));
-
-        setProducaoPorDia(producaoArray);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast({ 
-        title: "Erro", 
-        description: "Não foi possível carregar os dados.", 
-        variant: "destructive" 
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [navioId, navigate, toast]);
-
-  useEffect(() => {
-    fetchNavio();
-  }, [fetchNavio]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value } = e.target;
-    setFormData(prev => ({ ...prev, [id]: value }));
-  };
+  const [producaoPorDia, setProducaoPorDia] = useState<ProducaoDia[]>([]);
+  const [loadingProd, setLoadingProd] = useState(false);
 
   const handleCargaSelect = (carga: string) => {
     setFormData(prev => ({ ...prev, carga }));
@@ -125,32 +68,123 @@ const EditarNavio = () => {
     setFormData(prev => ({ ...prev, concluido: checked }));
   };
 
+  const carregarDados = useCallback(async () => {
+    setLoading(true);
+    setLoadingProd(true);
+    try {
+      if (!navioId) return;
+
+      const { data: navioData, error: navioError } = await supabase
+        .from('navios')
+        .select('*')
+        .eq('id', navioId)
+        .single();
+      
+      if (navioError) throw navioError;
+      
+      if (navioData) {
+        setFormData({
+          nome_navio: navioData.nome_navio || '',
+          carga: navioData.carga || '',
+          berco: navioData.berco || '',
+          quantidade_prevista: navioData.quantidade_prevista?.toString() || '',
+          cbs_total: navioData.cbs_total?.toString() || '',
+          media_cb: navioData.media_cb?.toString() || '',
+          inicio_operacao: navioData.inicio_operacao || '',
+          final_operacao: navioData.final_operacao || '',
+          concluido: navioData.concluido || false
+        });
+      }
+
+      const { data: prodData, error: prodError } = await supabase
+        .from('registros_producao')
+        .select('data, tons_total')
+        .eq('navio_id', navioId)
+        .order('data', { ascending: true });
+
+      if (prodError) throw prodError;
+
+      if (prodData && prodData.length > 0) {
+        const dadosOrdenados = prodData.sort((a, b) => a.data.localeCompare(b.data));
+
+        const agrupado = dadosOrdenados.reduce((acc: any[], curr) => {
+          const idx = acc.findIndex(item => item.data === curr.data);
+          if (idx !== -1) {
+            acc[idx] = { ...acc[idx], total_tons: acc[idx].total_tons + (curr.tons_total || 0) };
+          } else {
+            acc.push({ data: curr.data, total_tons: curr.tons_total || 0 });
+          }
+          return acc;
+        }, []);
+        
+        setProducaoPorDia(agrupado.reverse());
+      } else {
+        setProducaoPorDia([]);
+      }
+
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      toast({ 
+        title: "Erro", 
+        description: "Não foi possível carregar os dados do navio.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setLoading(false);
+      setLoadingProd(false);
+    }
+  }, [navioId, toast]);
+
+  useEffect(() => {
+    if (navioId) carregarDados();
+  }, [navioId, carregarDados]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value, type, checked } = e.target;
+    if (type === 'checkbox') {
+      setFormData(prev => ({ ...prev, [id]: checked }));
+    } else {
+      setFormData(prev => ({ ...prev, [id]: value }));
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!navioId) return;
+    if (!userProfile || !navioId) return;
     setIsSaving(true);
+    
     try {
-      const { id, created_at, updated_at, user_id, ...updateData } = formData;
-      if (updateData.inicio_operacao === '') updateData.inicio_operacao = null;
-      if (updateData.final_operacao === '') updateData.final_operacao = null;
+      const updateData = {
+        nome_navio: formData.nome_navio,
+        carga: formData.carga,
+        berco: formData.berco,
+        quantidade_prevista: formData.quantidade_prevista ? Number(formData.quantidade_prevista) : 0,
+        cbs_total: formData.cbs_total ? Number(formData.cbs_total) : 0,
+        inicio_operacao: formData.inicio_operacao || null,
+        final_operacao: formData.final_operacao || null,
+        media_cb: formData.media_cb ? Number(formData.media_cb) : 0,
+        concluido: formData.concluido
+      };
 
       const { error } = await supabase
         .from('navios')
         .update(updateData)
         .eq('id', navioId);
-      
+
       if (error) throw error;
 
       toast({ 
         title: "Sucesso!", 
         description: "Dados do navio atualizados." 
       });
-      navigate('/navios');
-    } catch (error) {
-      console.error("Erro ao atualizar dados:", error);
+      
+      await carregarDados();
+      
+    } catch (error: any) {
+      console.error("Erro ao salvar:", error);
       toast({ 
-        title: "Erro", 
-        description: (error as Error).message || "Não foi possível atualizar os dados.", 
+        title: "Erro ao salvar", 
+        description: error.message || "Não foi possível salvar os dados.", 
         variant: "destructive" 
       });
     } finally {
@@ -158,555 +192,606 @@ const EditarNavio = () => {
     }
   };
 
-  const totalGeral = producaoPorDia.reduce((sum, dia) => sum + dia.total_tons, 0);
-  const maxProducao = Math.max(...producaoPorDia.map(dia => dia.total_tons), 0);
+  const progresso = Number(formData.cbs_total) && Number(formData.quantidade_prevista)
+    ? (Number(formData.quantidade_prevista) / Number(formData.cbs_total)) * 100 
+    : 0;
+
+  const totalGeralTons = producaoPorDia.reduce((sum, dia) => sum + (dia.total_tons || 0), 0);
 
   const menuItems = [
     {
       icon: Ship,
       label: 'NAVIOS',
       path: '/navios',
-      color: 'bg-purple-600 hover:bg-purple-700',
-      iconBg: 'bg-purple-500/20',
-      iconColor: 'text-purple-300'
+      color: 'text-blue-400',
+      bgHover: 'hover:bg-blue-500/10'
     }
   ];
 
-  const handleSignOut = async () => {
-    await signOut();
+  const handleSignOut = async () => { 
+    await signOut(); 
+    navigate('/login'); 
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="fixed inset-0 -z-10 bg-slate-950"></div>
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-200 border-t-white rounded-full animate-spin mx-auto"></div>
-          <p className="text-blue-200 mt-2">Carregando dados do navio...</p>
+          <Loader2 className="h-10 w-10 animate-spin text-blue-500 mx-auto mb-4" />
+          <p className="text-slate-400">Carregando dados do navio...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* Header Mobile */}
-      <div className="lg:hidden bg-blue-900/80 backdrop-blur-md shadow-lg sticky top-0 z-10">
-        <div className="flex justify-between items-center px-4 py-4">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-blue-300 hover:bg-blue-800/50"
-              title="Abrir menu"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-xl font-bold text-white">Editar Navio</h1>
-              <p className="text-sm text-blue-300">{formData.nome_navio}</p>
+    <>
+      <div className="fixed inset-0 -z-10 bg-slate-950"></div>
+
+      <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-blue-500/30 relative">
+        {/* Layout Desktop */}
+        <div className="hidden lg:flex min-h-screen">
+          {/* Sidebar Desktop */}
+          <div className="w-80 bg-slate-900 border-r border-slate-800 flex flex-col flex-shrink-0">
+            <div className="p-6 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="bg-purple-500/20 p-2 rounded-lg">
+                  <Ship className="w-6 h-6 text-purple-400" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-white tracking-tight leading-none">Editar Navio</h1>
+                  <p className="text-xs text-slate-500 mt-1">Gestão de Operações</p>
+                </div>
+              </div>
             </div>
-          </div>
-          <Button
-            variant="ghost"
-            onClick={handleSignOut}
-            className="text-blue-300 hover:bg-blue-800/50"
-            title="Sair do sistema"
-          >
-            <LogOut className="h-5 w-5" />
-          </Button>
-        </div>
-      </div>
 
-      {/* Sidebar Mobile */}
-      {sidebarOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-blue-900/95 backdrop-blur-sm">
-          <div className="flex justify-between items-center p-4 border-b border-blue-600/30">
-            <h2 className="text-xl font-bold text-white">Menu</h2>
-            <Button
-              variant="ghost"
-              onClick={() => setSidebarOpen(false)}
-              className="text-white hover:bg-white/20"
-            >
-              <X className="h-6 w-6" />
-            </Button>
-          </div>
-          <div className="p-4 space-y-3 overflow-y-auto h-[calc(100%-80px)]">
-            <Button
-              onClick={() => navigate('/navios')}
-              className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl mb-4"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar para Navios
-            </Button>
-
-            <div className="space-y-2">
+            <div className="p-4 space-y-1 overflow-y-auto flex-1">
+              <div className="px-2 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Navegação</div>
+              <Button onClick={() => navigate('/navios')} variant="ghost" className="w-full justify-start h-10 px-3 text-slate-400 hover:text-white hover:bg-slate-800">
+                <ArrowLeft className="mr-3 h-4 w-4" />
+                <span className="text-sm font-medium">Voltar para Navios</span>
+              </Button>
               {menuItems.map((item) => (
-                <Button
-                  key={item.path}
-                  onClick={() => {
-                    navigate(item.path);
-                    setSidebarOpen(false);
-                  }}
-                  className={`w-full h-16 ${item.color} text-white text-lg font-semibold rounded-xl transition-all duration-300 relative hover:shadow-lg hover:scale-[1.02]`}
-                >
-                  <div className="flex items-center justify-start space-x-4 w-full">
-                    <div className={`${item.iconBg} p-3 rounded-lg`}>
-                      <item.icon className={`h-5 w-5 ${item.iconColor}`} />
-                    </div>
-                    <span className="text-left">{item.label}</span>
-                  </div>
-                  {item.hasNotification && (
-                    <span className="absolute top-3 right-3 flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                    </span>
-                  )}
+                <Button key={item.path} onClick={() => navigate(item.path)} variant="ghost" className={`w-full justify-start h-10 px-3 text-slate-400 hover:text-white hover:bg-slate-800 ${item.bgHover}`}>
+                  <item.icon className={`mr-3 h-4 w-4 ${item.color}`} />
+                  <span className="text-sm font-medium">{item.label}</span>
                 </Button>
               ))}
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Desktop Layout */}
-      <div className="hidden lg:flex min-h-screen">
-        {/* Sidebar Desktop */}
-        <div className="w-80 bg-blue-900/30 backdrop-blur-sm border-r border-blue-600/30 flex flex-col">
-          <div className="p-6 border-b border-blue-600/30">
-            <div className="flex items-center space-x-4">
-              <div className="bg-purple-500/20 p-3 rounded-xl">
-                <Ship className="h-8 w-8 text-purple-300" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-white">Editar Navio</h1>
-                <p className="text-blue-300 text-sm">{formData.nome_navio}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6 border-b border-blue-600/30">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-blue-200/30">
-              <p className="text-white font-semibold text-lg">{userProfile?.full_name || 'Usuário'}</p>
-              <p className="text-blue-300 text-sm mt-1">Status: <span className="text-green-400 font-medium">Ativo</span></p>
-              <p className="text-blue-300 text-sm mt-1">Último acesso: {new Date().toLocaleDateString('pt-BR')}</p>
-            </div>
-          </div>
-
-          <div className="p-6 border-b border-blue-600/30">
-            <Button
-              onClick={() => navigate('/navios')}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl py-3"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar para Navios
-            </Button>
-          </div>
-
-          <div className="flex-1 p-6 space-y-3 overflow-y-auto">
-            <h3 className="text-blue-200 font-semibold text-sm uppercase tracking-wider mb-4">Menu</h3>
-            {menuItems.map((item) => (
-              <Button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                className={`w-full h-16 ${item.color} text-white text-lg font-semibold rounded-xl transition-all duration-300 relative group hover:shadow-lg hover:scale-[1.02]`}
-              >
-                <div className="flex items-center justify-start space-x-4 w-full">
-                  <div className={`${item.iconBg} p-3 rounded-lg group-hover:bg-white/30 transition-colors`}>
-                    <item.icon className={`h-5 w-5 ${item.iconColor}`} />
-                  </div>
-                  <span className="text-left">{item.label}</span>
+            <div className="p-4 border-t border-slate-800 bg-slate-900/50">
+              <div className="flex items-center gap-3 px-2 mb-4">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-purple-500/20">
+                  {userProfile?.full_name?.substring(0,2).toUpperCase() || 'US'}
                 </div>
-                {item.hasNotification && (
-                  <span className="absolute top-4 right-4 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                  </span>
-                )}
+                <div className="flex flex-col overflow-hidden">
+                  <span className="text-sm font-medium text-white truncate leading-tight">{userProfile?.full_name || 'Usuário'}</span>
+                  <span className="text-xs text-slate-500 truncate">Operador</span>
+                </div>
+              </div>
+              <Button variant="outline" onClick={handleSignOut} className="w-full border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white justify-start h-9 text-sm">
+                <LogOut className="mr-2 h-4 w-4" /> Sair do Sistema
               </Button>
-            ))}
-          </div>
-
-          <div className="p-6 border-t border-blue-600/30">
-            <Button
-              variant="outline"
-              onClick={handleSignOut}
-              className="w-full text-blue-300 hover:text-white hover:bg-blue-500/20 border-blue-300/30 rounded-xl transition-all duration-300 py-3 hover:shadow"
-            >
-              <LogOut className="h-5 w-5 mr-2" />
-              Sair do Sistema
-            </Button>
-          </div>
-        </div>
-
-        {/* Main Content Desktop */}
-        <div className="flex-1 flex flex-col">
-          {/* Header */}
-          <div className="bg-blue-800/30 backdrop-blur-sm border-b border-blue-600/30 p-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-2xl font-bold text-white">Editar Viagem</h2>
-                <p className="text-blue-200">{formData.nome_navio}</p>
-              </div>
-              <div className="text-right">
-                <div className="text-blue-200 text-sm">Total Produzido</div>
-                <div className="text-white font-bold">
-                  {totalGeral.toFixed(3)} tons
-                </div>
-              </div>
             </div>
           </div>
 
-          {/* Content */}
-          <div className="p-6 flex-1 overflow-y-auto">
-            <form onSubmit={handleSave}>
-              {/* Card Dados da Viagem */}
-              <Card className="bg-white/10 backdrop-blur-sm border-blue-200/30 mb-6">
-                <CardHeader className="border-b border-blue-200/30">
-                  <CardTitle className="text-white">Dados da Viagem</CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="nome_navio" className="text-white text-sm">Nome do Navio*</Label>
-                      <Input 
-                        id="nome_navio" 
-                        value={formData.nome_navio || ''} 
-                        onChange={handleChange} 
-                        required 
-                        className="bg-white/5 border-blue-300/30 text-white"
-                      />
+          {/* Main Content Desktop */}
+          <div className="flex-1 flex flex-col min-w-0 bg-slate-950/50">
+            {/* Sticky Header - Com Nome do Navio e Carga */}
+            <div className="sticky top-0 z-20 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50 px-8 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-white">Editar Viagem</h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-xs text-slate-400">
+                    Navio: <span className="text-slate-300 font-medium">{formData.nome_navio || 'Carregando...'}</span>
+                  </p>
+                  {formData.carga && (
+                    <>
+                      <span className="text-slate-600">•</span>
+                      <p className="text-xs text-slate-400">
+                        Carga: <span className="text-slate-300 font-medium">{formData.carga}</span>
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <Button onClick={() => navigate('/novo-navio')} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 shadow-sm shadow-blue-900/20 h-9 text-base font-bold">
+                  <Plus className="h-4 w-4 mr-2" /> Novo Navio
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={handleSignOut} 
+                  className="border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white justify-start h-9 text-sm"
+                >
+                  <LogOut className="mr-2 h-4 w-4" /> Sair
+                </Button>
+              </div>
+            </div>
+
+            <main className="flex-1 overflow-y-auto p-6 space-y-6">
+              <form onSubmit={handleSave}>
+                {/* Card Dados da Viagem - 3 Colunas */}
+                <Card className="bg-slate-900/40 border-slate-800 shadow-sm">
+                  <CardHeader className="bg-slate-800/30 border-b border-slate-800/50 px-6 pb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Anchor className="h-5 w-5 text-blue-400" />
+                        <CardTitle className="text-slate-100 text-base font-medium">Dados da Viagem</CardTitle>
+                      </div>
+                      <Badge variant="outline" className={`
+                        ${formData.concluido 
+                          ? 'bg-green-500/10 text-green-300 border-green-500/30' 
+                          : 'bg-blue-500/10 text-blue-300 border-blue-500/30'
+                        } px-3 py-1
+                      `}>
+                        {formData.concluido ? 'Concluído' : 'Em Andamento'}
+                      </Badge>
                     </div>
-                    <div className="space-y-2 relative">
-                      <Label htmlFor="carga" className="text-white text-sm flex items-center space-x-2">
-                        <Package className="h-4 w-4 text-blue-300" />
-                        <span>Carga</span>
-                      </Label>
-                      <div className="relative">
-                        <Button
-                          type="button"
-                          onClick={() => setCargaDropdownOpen(!cargaDropdownOpen)}
-                          className="w-full bg-white/5 border border-blue-300/30 text-white hover:bg-white/10 hover:border-blue-300 justify-between px-3"
-                        >
-                          <span className={formData.carga ? "text-white" : "text-blue-300/50"}>
-                            {formData.carga || "Selecione o tipo de carga"}
-                          </span>
-                          <ChevronDown className={`h-4 w-4 transition-transform ${cargaDropdownOpen ? 'rotate-180' : ''}`} />
-                        </Button>
-                        
-                        {cargaDropdownOpen && (
-                          <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-blue-300/30 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                            <div className="py-1">
-                              {tiposCarga.map((carga) => (
-                                <button
-                                  key={carga}
-                                  type="button"
-                                  onClick={() => handleCargaSelect(carga)}
-                                  className={`w-full text-left px-4 py-2 hover:bg-blue-600/30 transition-colors ${
-                                    formData.carga === carga 
-                                      ? 'bg-blue-600 text-white' 
-                                      : 'text-blue-200'
-                                  }`}
-                                >
-                                  {carga}
-                                </button>
-                              ))}
+                  </CardHeader>
+                  
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      
+                      {/* Coluna 1 */}
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="nome_navio" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            Nome do Navio
+                          </Label>
+                          <Input 
+                            id="nome_navio" 
+                            value={formData.nome_navio} 
+                            onChange={handleChange}
+                            className="bg-slate-950 border-slate-700 text-white h-11 px-4 focus-visible:ring-blue-500 text-base"
+                            placeholder="Nome do navio"
+                            required 
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="carga" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            Carga / Produto
+                          </Label>
+                          <div className="relative">
+                            <Input 
+                              id="carga" 
+                              value={formData.carga} 
+                              onChange={handleChange}
+                              className="bg-slate-950 border-slate-700 text-white h-11 px-4 focus-visible:ring-blue-500 text-base pr-24"
+                              placeholder="Selecione ou digite"
+                            />
+                            <div className="absolute right-1 top-1/2 -translate-y-1/2">
+                              <Button
+                                type="button"
+                                onClick={() => setCargaDropdownOpen(!cargaDropdownOpen)}
+                                variant="ghost"
+                                size="sm"
+                                className="h-9 px-3 text-slate-400 hover:text-white hover:bg-slate-800"
+                              >
+                                <span className="text-xs mr-1">{formData.carga || 'Selecionar'}</span>
+                                <ChevronDown className={`h-4 w-4 transition-transform ${cargaDropdownOpen ? 'rotate-180' : ''}`} />
+                              </Button>
                             </div>
                           </div>
-                        )}
-                      </div>
-                      {formData.carga && (
-                        <div className="flex justify-between items-center mt-2">
-                          <span className="text-blue-300 text-sm">Selecionado: <span className="text-white">{formData.carga}</span></span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setFormData(prev => ({ ...prev, carga: '' }));
-                              setCargaDropdownOpen(false);
-                            }}
-                            className="h-6 px-2 text-xs text-red-300 hover:text-red-200 hover:bg-red-500/20"
-                          >
-                            Limpar
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="berco" className="text-white text-sm">Berço</Label>
-                      <Input 
-                        id="berco" 
-                        value={formData.berco || ''} 
-                        onChange={handleChange} 
-                        className="bg-white/5 border-blue-300/30 text-white"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="quantidade_prevista" className="text-white text-sm">Quantidade Prevista</Label>
-                      <Input 
-                        id="quantidade_prevista" 
-                        type="number" 
-                        step="0.01" 
-                        value={formData.quantidade_prevista || ''} 
-                        onChange={handleChange} 
-                        className="bg-white/5 border-blue-300/30 text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cbs_total" className="text-white text-sm">Total de CBs</Label>
-                      <Input 
-                        id="cbs_total" 
-                        type="number" 
-                        value={formData.cbs_total || ''} 
-                        onChange={handleChange} 
-                        className="bg-white/5 border-blue-300/30 text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="media_cb" className="text-white text-sm">Média por CB</Label>
-                      <Input 
-                        id="media_cb" 
-                        type="number" 
-                        step="0.0001" 
-                        value={formData.media_cb || ''} 
-                        onChange={handleChange} 
-                        className="bg-white/5 border-blue-300/30 text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="inicio_operacao" className="text-white text-sm">Início da Operação</Label>
-                      <Input 
-                        id="inicio_operacao" 
-                        type="datetime-local" 
-                        value={formData.inicio_operacao || ''} 
-                        onChange={handleChange} 
-                        className="bg-white/5 border-blue-300/30 text-white"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="final_operacao" className="text-white text-sm">Final da Operação</Label>
-                      <Input 
-                        id="final_operacao" 
-                        type="datetime-local" 
-                        value={formData.final_operacao || ''} 
-                        onChange={handleChange} 
-                        className="bg-white/5 border-blue-300/30 text-white"
-                      />
-                    </div>
-                    <div className="space-y-2 flex items-center">
-                      <div className="flex items-center space-x-2 bg-white/5 p-3 rounded-lg border border-blue-300/30 w-full">
-                        <Switch 
-                          id="concluido" 
-                          checked={formData.concluido} 
-                          onCheckedChange={handleSwitchChange} 
-                        />
-                        <Label htmlFor="concluido" className="text-white text-sm cursor-pointer">
-                          Marcado como Concluído
-                        </Label>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Botão Salvar */}
-                  <div className="pt-6">
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 text-lg font-semibold rounded-lg h-12"
-                      disabled={isSaving}
-                    >
-                      {isSaving ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                          Salvando Alterações...
-                        </>
-                      ) : (
-                        'Salvar Alterações da Viagem'
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Card Produção por Dia */}
-              <Card className="bg-white/10 backdrop-blur-sm border-blue-200/30">
-                <CardHeader className="border-b border-blue-200/30">
-                  <CardTitle className="text-white flex items-center space-x-2">
-                    <BarChart3 className="h-5 w-5" />
-                    <span>Produção por Dia</span>
-                    <Badge variant="outline" className="bg-blue-500/10 text-blue-300 border-blue-300/30">
-                      {producaoPorDia.length} dia(s) com registro
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  {producaoPorDia.length === 0 ? (
-                    <div className="text-center py-12">
-                      <BarChart3 className="h-12 w-12 text-blue-300/50 mx-auto mb-4" />
-                      <p className="text-white text-lg mb-2">Nenhum dado de produção</p>
-                      <p className="text-blue-200">
-                        Não há registros de produção para este navio
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {/* Gráfico de Barras */}
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <h3 className="text-white font-semibold">Toneladas por Dia</h3>
-                          <div className="text-blue-200 text-sm">
-                            Máximo: {maxProducao.toFixed(3)} tons
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-3">
-                          {producaoPorDia.map((dia, index) => {
-                            const porcentagem = maxProducao > 0 ? (dia.total_tons / maxProducao) * 100 : 0;
-                            return (
-                              <div key={index} className="space-y-2">
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-white font-medium">{dia.data}</span>
-                                  <span className="text-blue-200">{dia.total_tons.toFixed(3)} tons</span>
-                                </div>
-                                <div className="w-full bg-blue-900/50 rounded-full h-4">
-                                  <div 
-                                    className="bg-gradient-to-r from-orange-500 to-orange-600 h-4 rounded-full transition-all duration-500 ease-out"
-                                    style={{ width: `${porcentagem}%` }}
-                                  ></div>
+                          {cargaDropdownOpen && (
+                            <div className="absolute z-50 w-64 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl">
+                              <div className="p-2">
+                                <p className="text-xs font-semibold text-slate-400 mb-2 px-2">Selecione o tipo de carga</p>
+                                <div className="space-y-1">
+                                  {tiposCarga.map((tipo) => (
+                                    <button
+                                      key={tipo}
+                                      type="button"
+                                      onClick={() => handleCargaSelect(tipo)}
+                                      className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
+                                        formData.carga === tipo 
+                                          ? 'bg-blue-500/20 text-blue-300' 
+                                          : 'text-slate-400 hover:bg-slate-700 hover:text-white'
+                                      }`}
+                                    >
+                                      {tipo}
+                                    </button>
+                                  ))}
                                 </div>
                               </div>
-                            );
-                          })}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="berco" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            Berço
+                          </Label>
+                          <select 
+                            id="berco"
+                            value={formData.berco}
+                            onChange={(e) => setFormData(prev => ({ ...prev, berco: e.target.value }))}
+                            className="w-full bg-slate-950 border border-slate-700 text-white h-11 px-4 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                          >
+                            <option value="">Selecione o berço...</option>
+                            <option value="101">101</option>
+                            <option value="102">102</option>
+                            <option value="103">103</option>
+                            <option value="104">104</option>
+                            <option value="201">201</option>
+                            <option value="202">202</option>
+                            <option value="203">203</option>
+                            <option value="204">204</option>
+                          </select>
                         </div>
                       </div>
 
-                      {/* Tabela de Dados */}
-                      <div className="border border-blue-300/30 rounded-lg overflow-hidden">
-                        <div className="grid grid-cols-12 bg-blue-600/50 border-b border-blue-400/50">
-                          <div className="col-span-8 p-3 text-white font-semibold text-sm">Data</div>
-                          <div className="col-span-4 p-3 text-white font-semibold text-sm text-right">Toneladas</div>
-                        </div>
-                        {producaoPorDia.map((dia, index) => (
-                          <div 
-                            key={index} 
-                            className={`grid grid-cols-12 ${
-                              index < producaoPorDia.length - 1 ? 'border-b border-blue-300/20' : ''
-                            } ${index % 2 === 0 ? 'bg-white/5' : 'bg-white/3'}`}
-                          >
-                            <div className="col-span-8 p-3 text-white text-sm">{dia.data}</div>
-                            <div className="col-span-4 p-3 text-white text-sm text-right font-mono">
-                              {dia.total_tons.toFixed(3)}
-                            </div>
+                      {/* Coluna 2 */}
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="quantidade_prevista" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            Quantidade (Tons)
+                          </Label>
+                          <div className="relative">
+                            <Input 
+                              id="quantidade_prevista" 
+                              value={formData.quantidade_prevista}
+                              type="number"
+                              step="0.001"
+                              onChange={handleChange} 
+                              className="bg-slate-950 border-slate-700 text-white h-11 px-4 focus-visible:ring-blue-500 text-base pr-16"
+                              placeholder="0.000"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 font-medium">Tons</span>
                           </div>
-                        ))}
-                        {/* Total */}
-                        <div className="grid grid-cols-12 bg-blue-600/30 border-t border-blue-400/50">
-                          <div className="col-span-8 p-3 text-white font-semibold text-sm">Total Geral</div>
-                          <div className="col-span-4 p-3 text-white font-semibold text-sm text-right font-mono">
-                            {totalGeral.toFixed(3)} tons
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="cbs_total" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            Total CBs
+                          </Label>
+                          <Input 
+                            id="cbs_total" 
+                            value={formData.cbs_total}
+                            type="number"
+                            step="0.001"
+                            onChange={handleChange} 
+                            className="bg-slate-950 border-slate-700 text-white h-11 px-4 focus-visible:ring-blue-500 text-base"
+                            placeholder="0"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="media_cb" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            Média CB (Tons/CB)
+                          </Label>
+                          <div className="relative">
+                            <Input 
+                              id="media_cb" 
+                              value={formData.media_cb}
+                              type="number"
+                              step="0.0001"
+                              onChange={handleChange} 
+                              className="bg-slate-950 border-slate-700 text-white h-11 px-4 focus-visible:ring-blue-500 text-base pr-16"
+                              placeholder="0.0000"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 font-medium">T/CB</span>
                           </div>
                         </div>
                       </div>
+
+                      {/* Coluna 3 */}
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="inicio_operacao" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            Início da Operação
+                          </Label>
+                          <div className="relative">
+                            <Input 
+                              id="inicio_operacao" 
+                              value={formData.inicio_operacao || ''} 
+                              onChange={handleChange} 
+                              type="datetime-local" 
+                              className="bg-slate-950 border-slate-700 text-white h-11 px-4 focus-visible:ring-blue-500 text-base"
+                            />
+                            <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="final_operacao" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            Fim da Operação
+                          </Label>
+                          <div className="relative">
+                            <Input 
+                              id="final_operacao" 
+                              value={formData.final_operacao || ''} 
+                              onChange={handleChange} 
+                              type="datetime-local" 
+                              className="bg-slate-950 border-slate-700 text-white h-11 px-4 focus-visible:ring-blue-500 text-base"
+                            />
+                            <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            Status
+                          </Label>
+                          <div className="flex items-center gap-3 h-11 px-4 bg-slate-950/50 rounded-lg border border-slate-800">
+                            <Switch 
+                              id="concluido" 
+                              checked={formData.concluido} 
+                              onCheckedChange={handleSwitchChange} 
+                              className="data-[state=checked]:bg-blue-600"
+                            />
+                            <Label htmlFor="concluido" className="text-sm font-medium text-slate-300 cursor-pointer">
+                              {formData.concluido ? 'Concluído' : 'Em Andamento'}
+                            </Label>
+                          </div>
+                        </div>
+
+                        {/* Botão Salvar na 3ª coluna */}
+                        <div className="pt-4">
+                          <Button 
+                            type="submit" 
+                            disabled={isSaving}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white h-11 px-4 rounded-lg font-semibold shadow-lg shadow-blue-900/20"
+                          >
+                            {isSaving ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Salvando...
+                              </>
+                            ) : (
+                              'Salvar Dados do Navio'
+                            )}
+                          </Button>
+                        </div>
+                      </div>
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card Produção Diária - Sem lixeiras */}
+                <Card className="bg-slate-900/40 border-slate-800 shadow-sm">
+                  <CardHeader className="bg-slate-800/30 border-b border-slate-800/50 px-6 pb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5 text-blue-400" />
+                        <CardTitle className="text-slate-100 text-base font-medium">Produção Diária</CardTitle>
+                        <Badge variant="outline" className="bg-slate-950 border-slate-700 text-slate-400 text-xs px-2 py-0.5">
+                          {producaoPorDia.length} registro(s)
+                        </Badge>
+                      </div>
+                      <span className="text-sm text-emerald-400 font-bold">
+                        Total: {totalGeralTons.toFixed(3)} T
+                      </span>
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent className="p-6">
+                    {loadingProd ? (
+                      <div className="flex items-center justify-center h-32">
+                        <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                      </div>
+                    ) : producaoPorDia.length === 0 ? (
+                      <div className="text-center py-8 text-slate-500">
+                        <Activity className="h-10 w-10 mx-auto mb-2 text-slate-600" />
+                        <p className="text-sm">Nenhuma produção registrada para este navio.</p>
+                        <Button 
+                          onClick={() => navigate(`/producao-diaria/${navioId}`)}
+                          variant="outline"
+                          className="mt-4 border-slate-700 text-slate-300 hover:bg-slate-800"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Adicionar Produção
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-slate-800">
+                              <th className="text-left py-3 px-4 text-[10px] uppercase font-bold text-slate-500">Data</th>
+                              <th className="text-right py-3 px-4 text-[10px] uppercase font-bold text-slate-500">Toneladas</th>
+                              <th className="text-right py-3 px-4 text-[10px] uppercase font-bold text-slate-500">% da Meta</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/50">
+                            {producaoPorDia.map((dia) => {
+                              const percentualMeta = Number(formData.quantidade_prevista) > 0
+                                ? (dia.total_tons / Number(formData.quantidade_prevista)) * 100
+                                : 0;
+                              
+                              return (
+                                <tr key={dia.data} className="hover:bg-slate-800/40 transition-colors">
+                                  <td className="py-3 px-4 text-sm text-slate-300">
+                                    {format(new Date(dia.data), 'dd/MM/yyyy', { locale: ptBR })}
+                                  </td>
+                                  <td className="py-3 px-4 text-right text-sm font-mono text-slate-300">
+                                    {dia.total_tons.toFixed(3)}
+                                  </td>
+                                  <td className="py-3 px-4 text-right text-sm text-slate-400">
+                                    {percentualMeta.toFixed(1)}%
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                          <tfoot className="border-t border-slate-800">
+                            <tr>
+                              <td className="py-4 px-4 text-xs font-bold text-slate-400">Total Geral</td>
+                              <td className="py-4 px-4 text-right text-sm font-bold text-emerald-400">
+                                {totalGeralTons.toFixed(3)} Tons
+                              </td>
+                              <td className="py-4 px-4 text-right text-sm font-bold text-slate-400">
+                                {progresso.toFixed(1)}%
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </form>
+            </main>
+          </div>
+        </div>
+
+        {/* Layout Mobile */}
+        <div className="lg:hidden flex flex-col min-h-screen bg-slate-950">
+          {/* Header Mobile - Com Nome do Navio e Carga */}
+          <div className="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-30 flex items-center justify-between shadow-md">
+            <div className="flex items-center gap-3">
+              <Button onClick={() => navigate('/navios')} variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-slate-800">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div className="flex items-center gap-2">
+                <Ship className="text-blue-400 w-5 h-5" />
+                <div>
+                  <h1 className="text-lg font-bold text-white leading-tight">Editar Navio</h1>
+                  <div className="flex items-center gap-1">
+                    <p className="text-[10px] text-slate-400 truncate max-w-[100px]">{formData.nome_navio}</p>
+                    {formData.carga && (
+                      <>
+                        <span className="text-slate-600 text-[10px]">•</span>
+                        <p className="text-[10px] text-slate-400 truncate max-w-[80px]">{formData.carga}</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => navigate('/novo-navio')} variant="ghost" size="icon" className="text-slate-400 hover:text-white">
+                <Plus className="h-5 w-5" />
+              </Button>
+              <Button onClick={() => setSidebarOpen(true)} variant="ghost" size="icon" className="text-slate-400 hover:text-white">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Sidebar Mobile Overlay */}
+          {sidebarOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="flex justify-between items-center p-4 border-b border-slate-800">
+                <h2 className="text-white font-bold text-lg">Menu</h2>
+                <Button onClick={() => setSidebarOpen(false)} variant="ghost" size="icon" className="text-white hover:bg-slate-800">
+                  <X className="w-6 h-6" />
+                </Button>
+              </div>
+              <div className="p-4 space-y-2">
+                <Button 
+                  onClick={() => {
+                    navigate('/navios');
+                    setSidebarOpen(false);
+                  }} 
+                  variant="outline" 
+                  className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white h-12 px-4"
+                >
+                  <ArrowLeft className="mr-3 h-4 w-4" /> Voltar para Navios
+                </Button>
+                <Button 
+                  onClick={() => {
+                    handleSignOut();
+                    setSidebarOpen(false);
+                  }} 
+                  variant="outline" 
+                  className="w-full justify-start border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white h-12 px-4"
+                >
+                  <LogOut className="mr-3 h-4 w-4" /> Sair
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Conteúdo Mobile */}
+          <div className="p-4 space-y-6 pb-20">
+            {/* Form Mobile Simplificado */}
+            <Card className="bg-slate-900/40 border-slate-800">
+              <CardContent className="p-4 space-y-4">
+                <div>
+                  <Label htmlFor="nome_navio_mobile" className="text-slate-400 text-xs">Nome do Navio</Label>
+                  <Input 
+                    id="nome_navio_mobile"
+                    value={formData.nome_navio} 
+                    onChange={handleChange}
+                    className="bg-slate-950 border-slate-700 text-white h-10"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-slate-400 text-xs">Carga</Label>
+                  <select 
+                    value={formData.carga}
+                    onChange={(e) => setFormData(prev => ({ ...prev, carga: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-700 text-white h-10 rounded-md px-3 text-sm"
+                  >
+                    <option value="">Selecione...</option>
+                    {tiposCarga.map(tipo => (
+                      <option key={tipo} value={tipo}>{tipo}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-300">Status</span>
+                  <div className="flex items-center gap-2">
+                    <Switch 
+                      checked={formData.concluido} 
+                      onCheckedChange={handleSwitchChange} 
+                    />
+                    <span className="text-xs text-slate-400">
+                      {formData.concluido ? 'Concluído' : 'Em andamento'}
+                    </span>
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12"
+                >
+                  {isSaving ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Salvando...</>
+                  ) : (
+                    <><Save className="h-4 w-4 mr-2" /> Salvar Alterações</>
                   )}
-                </CardContent>
-              </Card>
-            </form>
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Produção Mobile */}
+            <Card className="bg-slate-900/40 border-slate-800">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-white flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-purple-400" />
+                  Produção Diária
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                {producaoPorDia.length === 0 ? (
+                  <p className="text-xs text-slate-500 text-center py-4">Nenhuma produção registrada</p>
+                ) : (
+                  <div className="space-y-3">
+                    {producaoPorDia.slice(0, 5).map((dia) => (
+                      <div key={dia.data} className="flex justify-between items-center">
+                        <span className="text-xs text-slate-400">
+                          {format(new Date(dia.data), 'dd/MM/yyyy')}
+                        </span>
+                        <span className="text-xs font-bold text-emerald-400">
+                          {dia.total_tons.toFixed(2)} T
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
-
-      {/* Mobile Content (quando sidebar fechada) */}
-      {!sidebarOpen && (
-        <div className="lg:hidden p-4">
-          <Button
-            onClick={() => navigate('/navios')}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl mb-4 py-3"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar para Navios
-          </Button>
-
-          {/* Formulário mobile simplificado */}
-          <form onSubmit={handleSave}>
-            <Card className="bg-white/10 backdrop-blur-sm border-blue-200/30 mb-4">
-              <CardHeader className="border-b border-blue-200/30">
-                <CardTitle className="text-white">Dados da Viagem</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="nome_navio_mobile" className="text-white text-sm">Nome do Navio*</Label>
-                    <Input 
-                      id="nome_navio_mobile" 
-                      value={formData.nome_navio || ''} 
-                      onChange={handleChange} 
-                      required 
-                      className="bg-white/5 border-blue-300/30 text-white"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="carga_mobile" className="text-white text-sm">Carga</Label>
-                    <div className="relative">
-                      <Button
-                        type="button"
-                        onClick={() => setCargaDropdownOpen(!cargaDropdownOpen)}
-                        className="w-full bg-white/5 border border-blue-300/30 text-white hover:bg-white/10 hover:border-blue-300 justify-between px-3 h-10"
-                      >
-                        <span className={formData.carga ? "text-white" : "text-blue-300/50"}>
-                          {formData.carga || "Selecione o tipo de carga"}
-                        </span>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${cargaDropdownOpen ? 'rotate-180' : ''}`} />
-                      </Button>
-                      
-                      {cargaDropdownOpen && (
-                        <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-blue-300/30 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                          <div className="py-1">
-                            {tiposCarga.map((carga) => (
-                              <button
-                                key={carga}
-                                type="button"
-                                onClick={() => handleCargaSelect(carga)}
-                                className={`w-full text-left px-4 py-2 hover:bg-blue-600/30 transition-colors ${
-                                  formData.carga === carga 
-                                    ? 'bg-blue-600 text-white' 
-                                    : 'text-blue-200'
-                                }`}
-                              >
-                                {carga}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="berco_mobile" className="text-white text-sm">Berço</Label>
-                      <Input 
-                        id="berco_mobile" 
-                        value={formData.berco || ''} 
-                        onChange={handleChange} 
-                        className="bg-white/5 border-blue-300/30 text-white"
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Botão Salvar mobile */}
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg h-12 mt-4"
-                    disabled={isSaving}
-                  >
-                    {isSaving ? 'Salvando...' : 'Salvar Alterações'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </form>
-        </div>
-      )}
-    </div>
+    </>
   );
 };
 
