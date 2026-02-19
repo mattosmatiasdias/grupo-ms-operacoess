@@ -129,7 +129,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <h1 className="text-lg font-bold text-white tracking-tight leading-none">Gestão Ops</h1>
-                <p className="text-xs text-slate-500 mt-1">VERSÃO: 22.4.1</p>
+                <p className="text-xs text-slate-500 mt-1">VERSÃO: 22.4.4</p>
               </div>
             </div>
           </div>

@@ -330,17 +330,103 @@ const Visuais = () => {
     inicializar();
   }, []);
 
-  // Lógica de Atualização CR (Mantida Original)
+  // --- FUNÇÃO CORRIGIDA: Atualização CR - VERSÃO FUNCIONAL ---
   const executarAtualizacaoCR = async () => {
     setAtualizandoCR(true);
     try {
       toast.info('Iniciando atualização de Centros de Resultado...', { duration: 3000 });
-      const { data, error } = await supabase.rpc('executar_sql_direto', {
-        sql_query: `UPDATE public.registro_operacoes ro SET centro_resultado = CASE WHEN ro.op = 'HYDRO' THEN 'HYDRO - OPERACAO PORTUARIA CARVAO BAUXITA' WHEN ro.op = 'SANTOS BRASIL' THEN 'SANTOS BRASIL - PRANCHA' WHEN ro.op = 'ALBRAS' AND UPPER(TRIM(ro.carga)) IN ('COQUE', 'PICHE', 'FLUORETO', 'OUTROS') THEN 'ALBRAS - COQUE, PICHE E FLUORETO' WHEN ro.op = 'ALBRAS' AND UPPER(TRIM(ro.carga)) = 'LINGOTE' THEN 'ALBRAS - CINTAGEM E TRANSPORTE DE ALUMÍNIO' WHEN EXISTS (SELECT 1 FROM public.navios n WHERE n.id = ro.navio_id AND UPPER(TRIM(n.carga)) IN ('HIDRATO', 'CARVAO', 'BAUXITA')) THEN 'HYDRO - OPERACAO PORTUARIA CARVAO BAUXITA' WHEN EXISTS (SELECT 1 FROM public.navios n WHERE n.id = ro.navio_id AND UPPER(TRIM(n.carga)) IN ('COQUE', 'PICHE', 'FLUORETO')) THEN 'ALBRAS - COQUE, PICHE E FLUORETO' WHEN EXISTS (SELECT 1 FROM public.navios n WHERE n.id = ro.navio_id AND UPPER(TRIM(n.carga)) = 'LINGOTE') THEN 'ALBRAS - CINTAGEM E TRANSPORTE DE ALUMÍNIO' ELSE centro_resultado END WHERE ro.centro_resultado IS NULL;`
-      });
-      if (error) throw error;
-      toast.success('Centros de Resultado atualizados com sucesso!', { duration: 5000 });
+      
+      // CORREÇÃO: Buscar registros sem centro_resultado e atualizar um por um
+      const { data: registros, error: fetchError } = await supabase
+        .from('registro_operacoes')
+        .select('id, op, carga, navio_id')
+        .is('centro_resultado', null);
+
+      if (fetchError) throw fetchError;
+
+      if (!registros || registros.length === 0) {
+        toast.success('Todos os registros já possuem Centro de Resultado!', { duration: 3000 });
+        return;
+      }
+
+      toast.info(`Encontrados ${registros.length} registros para atualizar...`, { duration: 3000 });
+
+      let atualizados = 0;
+      let erros = 0;
+
+      // Processar em lotes para não sobrecarregar
+      for (const registro of registros) {
+        try {
+          let centroResultado = null;
+
+          // 1. Todas as operações HYDRO
+          if (registro.op === 'HYDRO') {
+            centroResultado = 'HYDRO - OPERACAO PORTUARIA CARVAO BAUXITA';
+          }
+          // 2. Todas as operações SANTOS BRASIL
+          else if (registro.op === 'SANTOS BRASIL') {
+            centroResultado = 'SANTOS BRASIL - PRANCHA';
+          }
+          // 3. Operações ALBRAS baseadas na CARGA
+          else if (registro.op === 'ALBRAS') {
+            const cargaUpper = registro.carga ? registro.carga.toUpperCase().trim() : '';
+            if (['COQUE', 'PICHE', 'FLUORETO', 'OUTROS'].includes(cargaUpper)) {
+              centroResultado = 'ALBRAS - COQUE, PICHE E FLUORETO';
+            } else if (cargaUpper === 'LINGOTE') {
+              centroResultado = 'ALBRAS - CINTAGEM E TRANSPORTE DE ALUMÍNIO';
+            }
+          }
+
+          // 4. Se ainda não determinou, buscar info do navio
+          if (!centroResultado && registro.navio_id) {
+            const { data: navio, error: navioError } = await supabase
+              .from('navios')
+              .select('carga')
+              .eq('id', registro.navio_id)
+              .single();
+
+            if (!navioError && navio) {
+              const cargaNavio = navio.carga ? navio.carga.toUpperCase().trim() : '';
+              
+              if (['HIDRATO', 'CARVAO', 'BAUXITA'].includes(cargaNavio)) {
+                centroResultado = 'HYDRO - OPERACAO PORTUARIA CARVAO BAUXITA';
+              } else if (['COQUE', 'PICHE', 'FLUORETO'].includes(cargaNavio)) {
+                centroResultado = 'ALBRAS - COQUE, PICHE E FLUORETO';
+              } else if (cargaNavio === 'LINGOTE') {
+                centroResultado = 'ALBRAS - CINTAGEM E TRANSPORTE DE ALUMÍNIO';
+              }
+            }
+          }
+
+          // Atualizar se encontrou um centro_resultado
+          if (centroResultado) {
+            const { error: updateError } = await supabase
+              .from('registro_operacoes')
+              .update({ centro_resultado: centroResultado })
+              .eq('id', registro.id);
+
+            if (updateError) {
+              console.error('Erro ao atualizar registro:', registro.id, updateError);
+              erros++;
+            } else {
+              atualizados++;
+            }
+          }
+        } catch (err) {
+          console.error('Erro no registro:', registro.id, err);
+          erros++;
+        }
+      }
+
+      if (erros > 0) {
+        toast.warning(`Atualização parcial: ${atualizados} atualizados, ${erros} erros`, { duration: 5000 });
+      } else {
+        toast.success(`${atualizados} Centros de Resultado atualizados com sucesso!`, { duration: 5000 });
+      }
+      
+      // Recarregar dados após atualização
       if (filtros.periodo) buscarDadosEquipamentos();
+      
     } catch (error: any) {
       console.error('Erro na atualização de CR:', error);
       toast.error(`Erro: ${error.message}`, { duration: 5000 });

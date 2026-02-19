@@ -70,6 +70,25 @@ interface OperacaoCompleta {
   ausencias: Ausencia[];
 }
 
+interface RelatorioItem {
+  registro_id: string;
+  operacao: string;
+  carga_operacao: string;
+  data: string;
+  hora_inicial: string;
+  hora_final: string;
+  centro_resultado: string;
+  observacao: string;
+  equipamento_id: string;
+  tag: string;
+  tag_generico: string;
+  categoria_nome: string;
+  local: string;
+  motorista_operador: string;
+  horas_trabalhadas: number;
+  horas_operando: number;
+}
+
 // --- 2. FUNÇÕES DE UTILIDADE ---
 const corrigirFusoHorarioData = (dataString: string): string => {
   try {
@@ -688,27 +707,167 @@ const RelatorioTransporte = () => {
 
   useEffect(() => { if (filtroAplicado.data) fetchOperacoes(); }, [filtroAplicado, fetchOperacoes]);
 
-  const gerarRelatorioCSV = async (di: string, df: string) => {
+  // Função corrigida para gerar relatório CSV completo
+  const gerarRelatorioCSV = async (dataInicial: string, dataFinal: string) => {
     setGerandoRelatorio(true);
+    
     try {
-      const { data } = await supabase.from('registro_operacoes').select(`*, navios (*), equipamentos (*)`).gte('data', di).lte('data', df);
-      if (!data?.length) { toast({ title: "Sem dados", variant: "destructive" }); return; }
-      
-      const rows: any[] = [];
-      data.forEach(op => (op.equipamentos || []).forEach((eq: any) => rows.push({
-        ID: op.id, Op: op.op, Data: op.data, Inicio: op.hora_inicial, Fim: op.hora_final, 
-        Tag: eq.tag, Operador: eq.motorista_operador, Horas: eq.horas_trabalhadas
-      })));
+      // Corrigir fusos horários das datas
+      const dataInicialCorrigida = corrigirFusoHorarioData(dataInicial);
+      const dataFinalCorrigida = corrigirFusoHorarioData(dataFinal);
 
-      const csv = [Object.keys(rows[0]).join(','), ...rows.map(r => Object.values(r).map(v => `"${v}"`).join(','))].join('\n');
-      const blob = new Blob([csv], { type: 'text/csv' });
+      console.log('Buscando dados para o relatório:', dataInicialCorrigida, 'até', dataFinalCorrigida);
+
+      // Buscar dados completos com relacionamentos
+      const { data: relatorioData, error } = await supabase
+        .from('registro_operacoes')
+        .select(`
+          *,
+          navios (
+            nome_navio,
+            carga
+          ),
+          equipamentos (
+            id,
+            tag,
+            tag_generico,
+            categoria_nome,
+            local,
+            motorista_operador,
+            horas_trabalhadas,
+            horas_operando
+          )
+        `)
+        .gte('data', dataInicialCorrigida)
+        .lte('data', dataFinalCorrigida)
+        .order('data', { ascending: true });
+
+      if (error) {
+        console.error('Erro na query:', error);
+        throw new Error(`Erro ao buscar dados: ${error.message}`);
+      }
+
+      console.log('Dados encontrados:', relatorioData?.length || 0, 'operações');
+
+      if (!relatorioData || relatorioData.length === 0) {
+        toast({
+          title: "Nenhum dado encontrado",
+          description: `Não há operações no período de ${formatarDataBR(dataInicialCorrigida)} a ${formatarDataBR(dataFinalCorrigida)}`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Processar os dados conforme o SQL fornecido
+      const dadosProcessados: RelatorioItem[] = [];
+
+      relatorioData.forEach(operacao => {
+        const equipamentos = operacao.equipamentos || [];
+        
+        equipamentos.forEach(equipamento => {
+          const item: RelatorioItem = {
+            registro_id: operacao.id,
+            operacao: operacao.op === 'NAVIO' && operacao.navios
+              ? `${operacao.navios.nome_navio} - ${operacao.navios.carga}`
+              : operacao.op,
+            carga_operacao: operacao.op === 'NAVIO' && operacao.navios
+              ? operacao.navios.carga
+              : operacao.carga || '',
+            data: operacao.data,
+            hora_inicial: operacao.hora_inicial || '',
+            hora_final: operacao.hora_final || '',
+            centro_resultado: operacao.centro_resultado || '',
+            observacao: operacao.observacao || '',
+            equipamento_id: equipamento.id,
+            tag: equipamento.tag || '',
+            tag_generico: equipamento.tag_generico || '',
+            categoria_nome: equipamento.categoria_nome || '',
+            local: equipamento.local || '',
+            motorista_operador: equipamento.motorista_operador || '',
+            horas_trabalhadas: equipamento.horas_trabalhadas || 0,
+            horas_operando: equipamento.horas_operando || 0
+          };
+          
+          dadosProcessados.push(item);
+        });
+      });
+
+      console.log('Dados processados:', dadosProcessados.length, 'registros');
+
+      // Gerar CSV com cabeçalho completo
+      const cabecalho = [
+        'Registro ID',
+        'Operação',
+        'Carga Operação',
+        'Data',
+        'Hora Inicial',
+        'Hora Final',
+        'Centro Resultado',
+        'Observação',
+        'Equipamento ID',
+        'Tag',
+        'Tag Genérico',
+        'Categoria',
+        'Local',
+        'Motorista/Operador',
+        'Horas Trabalhadas',
+        'Horas Operando'
+      ];
+
+      const linhas = dadosProcessados.map(item => [
+        item.registro_id,
+        item.operacao,
+        item.carga_operacao,
+        item.data,
+        item.hora_inicial,
+        item.hora_final,
+        item.centro_resultado,
+        item.observacao,
+        item.equipamento_id,
+        item.tag,
+        item.tag_generico,
+        item.categoria_nome,
+        item.local,
+        item.motorista_operador,
+        item.horas_trabalhadas.toString(),
+        item.horas_operando.toString()
+      ]);
+
+      const csvContent = [
+        cabecalho.join(','),
+        ...linhas.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+
+      // Criar e baixar o arquivo
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `relatorio_${di}_${df}.csv`;
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `relatorio_operacoes_${dataInicialCorrigida}_${dataFinalCorrigida}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Relatório gerado",
+        description: `Relatório de ${formatarDataBR(dataInicialCorrigida)} a ${formatarDataBR(dataFinalCorrigida)} baixado com sucesso.`,
+      });
+
       setModalRelatorioOpen(false);
-      toast({ title: "Sucesso", description: "Relatório baixado." });
-    } catch { toast({ title: "Erro", variant: "destructive" }); } finally { setGerandoRelatorio(false); }
+
+    } catch (error: any) {
+      console.error('Erro ao gerar relatório:', error);
+      toast({
+        title: "Erro ao gerar relatório",
+        description: error.message || "Ocorreu um erro ao gerar o relatório.",
+        variant: "destructive"
+      });
+    } finally {
+      setGerandoRelatorio(false);
+    }
   };
 
   const handleAtualizarDados = useCallback(async () => {
