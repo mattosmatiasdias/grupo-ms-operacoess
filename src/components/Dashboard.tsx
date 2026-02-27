@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Bell, FileText, Ship, LogOut, BarChart3, Menu, X, 
   Calendar, ClipboardCheck, Car, AlertTriangle, Building2, 
-  Percent, Activity, Clock, ArrowUpRight, LucideIcon 
+  Percent, Activity, Clock, ArrowUpRight, Users // Adicionei Users aqui
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
@@ -93,6 +93,14 @@ const Dashboard = () => {
       path: '/visuais',
       color: 'text-emerald-400',
       bgHover: 'hover:bg-emerald-500/10',
+    },
+    // NOVO MÓDULO HH - HOMEM HORA
+    {
+      icon: Users, // Ícone de usuários para representar Homem Hora
+      label: 'Homem Hora',
+      path: '/homem-hora',
+      color: 'text-pink-400', // Cor rosa para diferenciar
+      bgHover: 'hover:bg-pink-500/10',
     }
   ];
 
@@ -129,7 +137,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <h1 className="text-lg font-bold text-white tracking-tight leading-none">Gestão Ops</h1>
-                <p className="text-xs text-slate-500 mt-1">VERSÃO: 22.4.4</p>
+                <p className="text-xs text-slate-500 mt-1">VERSÃO: 25.00</p>
               </div>
             </div>
           </div>

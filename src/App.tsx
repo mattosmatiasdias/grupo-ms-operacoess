@@ -1,4 +1,4 @@
-// src/App.tsx (CORRIGIDO - com rota /escalas/nova)
+// src/App.tsx (ATUALIZADO - com rota para Homem Hora)
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -43,7 +43,10 @@ import Ocorrencias from "./pages/escalas/ocorrencias";
 import Pessoal from "./pages/escalas/pessoal";
 import Relatorios from "./pages/escalas/relatorios";
 import Salarios from "./pages/escalas/salarios";
-import NovaEscala from "./pages/escalas/novaescala"; // ADICIONE ESTE IMPORT
+import NovaEscala from "./pages/escalas/novaescala";
+
+// NOVO MÓDULO - Homem Hora
+import HomemHora from "./pages/HomemHora";
 
 const queryClient = new QueryClient();
 
@@ -191,10 +194,16 @@ const App = () => (
               </ProtectedRoute>
             } />
 
-            {/* ADICIONE ESTA ROTA - Nova Escala */}
             <Route path="/escalas/nova" element={
               <ProtectedRoute>
                 <NovaEscala />
+              </ProtectedRoute>
+            } />
+
+            {/* NOVA ROTA - Homem Hora */}
+            <Route path="/homem-hora" element={
+              <ProtectedRoute>
+                <HomemHora />
               </ProtectedRoute>
             } />
 

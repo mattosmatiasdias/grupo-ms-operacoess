@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 
 // --- IMPORTAÇÕES RECHARTS (Gráficos Profissionais) ---
 import { 
@@ -160,42 +161,51 @@ const GraficoPizzaLocais = ({ dados, totalHoras }: { dados: LocalData[], totalHo
 };
 
 // Componente Gráfico de Barras Vertical
-const GraficoBarrasVertical = ({ dados, titulo, dataKey, nameKey }: { dados: any[], titulo: string, dataKey: string, nameKey: string }) => {
+const GraficoBarrasVertical = ({ dados, titulo, dataKey, nameKey, cor = '#3B82F6' }: { dados: any[], titulo: string, dataKey: string, nameKey: string, cor?: string }) => {
   if (dados.length === 0) return null;
+
+  // Limitar a 12 itens para melhor visualização
+  const dadosLimitados = dados.slice(0, 12);
 
   return (
     <div className="space-y-4 h-full flex flex-col">
       {titulo && <h3 className="text-slate-200 font-semibold text-lg px-1">{titulo}</h3>}
-      <div className="flex-1 bg-slate-800/20 rounded-xl p-4 border border-slate-700/50 min-h-[320px]">
+      <div className="flex-1 bg-slate-800/20 rounded-xl p-4 border border-slate-700/50 min-h-[350px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={dados} margin={{ top: 20, right: 10, left: 0, bottom: 60 }}>
+          <BarChart 
+            data={dadosLimitados} 
+            margin={{ top: 20, right: 20, left: 10, bottom: 70 }}
+            barSize={30}
+          >
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
             <XAxis 
               dataKey={nameKey} 
               angle={-45} 
               textAnchor="end" 
-              height={80}
+              height={90}
               tick={{ fill: '#94a3b8', fontSize: 11 }}
               axisLine={{ stroke: '#334155' }}
+              interval={0}
             />
             <YAxis 
               tick={{ fill: '#94a3b8', fontSize: 11 }}
               axisLine={false}
               tickLine={false}
+              width={45}
             />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} />
             <Bar 
               dataKey={dataKey} 
               radius={[4, 4, 0, 0]}
-              fill="#3B82F6"
+              fill={cor}
             >
               <defs>
-                <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0.5}/>
+                <linearGradient id={`barGradient-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={cor} stopOpacity={0.9}/>
+                  <stop offset="95%" stopColor={cor} stopOpacity={0.5}/>
                 </linearGradient>
               </defs>
-              <Rectangle fill="url(#barGradient)" />
+              <Rectangle fill={`url(#barGradient-${dataKey})`} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -209,7 +219,7 @@ const Visuais = () => {
   const navigate = useNavigate();
   const { userProfile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [vistaAtiva, setVistaAtiva] = useState<VistaAtiva>('NAVIO'); // MUDADO PARA NAVIO COMO PADRÃO
+  const [vistaAtiva, setVistaAtiva] = useState<VistaAtiva>('NAVIO');
   const [atualizandoCR, setAtualizandoCR] = useState(false);
   
   // Função para formatar data
@@ -274,15 +284,17 @@ const Visuais = () => {
   const [filtros, setFiltros] = useState({ periodo: '', local: 'todos' });
   const [dadosGeral, setDadosGeral] = useState<{ locais: LocalData[]; tags: TagGenericoData[]; categorias: CategoriaData[] }>({ locais: [], tags: [], categorias: [] });
   const [dadosNavio, setDadosNavio] = useState<{ 
-    navios: NavioCargaData[]; 
-    detalhesNavios: Record<string, TagGenericoData[]>; 
-    categoriasNavios: Record<string, CategoriaData[]>;
+    navios: NavioCargaData[];
     totaisPeriodo: { tons_produzidos: number; quantidade_prevista: number; percentual_geral: number };
+    horasPorNavio: TagGenericoData[];
+    producaoPeriodo: TagGenericoData[];
+    cargasToneladas: CategoriaData[];
   }>({ 
-    navios: [], 
-    detalhesNavios: {}, 
-    categoriasNavios: {},
-    totaisPeriodo: { tons_produzidos: 0, quantidade_prevista: 0, percentual_geral: 0 }
+    navios: [],
+    totaisPeriodo: { tons_produzidos: 0, quantidade_prevista: 0, percentual_geral: 0 },
+    horasPorNavio: [],
+    producaoPeriodo: [],
+    cargasToneladas: []
   });
   const [dadosAlbras, setDadosAlbras] = useState<{ tags: TagGenericoData[]; categorias: CategoriaData[] }>({ tags: [], categorias: [] });
   const [dadosSantosBrasil, setDadosSantosBrasil] = useState<{ tags: TagGenericoData[]; categorias: CategoriaData[] }>({ tags: [], categorias: [] });
@@ -292,15 +304,6 @@ const Visuais = () => {
   const [inicializando, setInicializando] = useState(true);
   const [periodos, setPeriodos] = useState<{value: string, label: string}[]>([]);
   const [totais, setTotais] = useState({ horas: 0, quantidade: 0 });
-
-  const locais = [
-    { value: 'todos', label: 'Todos os Locais' },
-    { value: 'HYDRO', label: 'HYDRO' },
-    { value: 'ALBRAS', label: 'ALBRAS' },
-    { value: 'SANTOS BRASIL', label: 'SANTOS BRASIL' },
-    { value: 'NAVIO', label: 'NAVIOS' },
-    { value: 'NÃO INFORMADO', label: 'Não Informado' }
-  ];
 
   const botoesMenu = [
     { id: 'GERAL' as VistaAtiva, icon: Globe, label: 'VISÃO GERAL', color: 'bg-blue-600 hover:bg-blue-700', iconBg: 'bg-blue-500/20', iconColor: 'text-blue-300' },
@@ -336,7 +339,6 @@ const Visuais = () => {
     try {
       toast.info('Iniciando atualização de Centros de Resultado...', { duration: 3000 });
       
-      // CORREÇÃO: Buscar registros sem centro_resultado e atualizar um por um
       const { data: registros, error: fetchError } = await supabase
         .from('registro_operacoes')
         .select('id, op, carga, navio_id')
@@ -354,20 +356,16 @@ const Visuais = () => {
       let atualizados = 0;
       let erros = 0;
 
-      // Processar em lotes para não sobrecarregar
       for (const registro of registros) {
         try {
           let centroResultado = null;
 
-          // 1. Todas as operações HYDRO
           if (registro.op === 'HYDRO') {
             centroResultado = 'HYDRO - OPERACAO PORTUARIA CARVAO BAUXITA';
           }
-          // 2. Todas as operações SANTOS BRASIL
           else if (registro.op === 'SANTOS BRASIL') {
             centroResultado = 'SANTOS BRASIL - PRANCHA';
           }
-          // 3. Operações ALBRAS baseadas na CARGA
           else if (registro.op === 'ALBRAS') {
             const cargaUpper = registro.carga ? registro.carga.toUpperCase().trim() : '';
             if (['COQUE', 'PICHE', 'FLUORETO', 'OUTROS'].includes(cargaUpper)) {
@@ -377,7 +375,6 @@ const Visuais = () => {
             }
           }
 
-          // 4. Se ainda não determinou, buscar info do navio
           if (!centroResultado && registro.navio_id) {
             const { data: navio, error: navioError } = await supabase
               .from('navios')
@@ -398,7 +395,6 @@ const Visuais = () => {
             }
           }
 
-          // Atualizar se encontrou um centro_resultado
           if (centroResultado) {
             const { error: updateError } = await supabase
               .from('registro_operacoes')
@@ -424,7 +420,6 @@ const Visuais = () => {
         toast.success(`${atualizados} Centros de Resultado atualizados com sucesso!`, { duration: 5000 });
       }
       
-      // Recarregar dados após atualização
       if (filtros.periodo) buscarDadosEquipamentos();
       
     } catch (error: any) {
@@ -435,14 +430,14 @@ const Visuais = () => {
     }
   };
 
-  // Lógica de Busca de Dados (Adaptada para incluir produção)
+  // Lógica de Busca de Dados
   const buscarDadosEquipamentos = async () => {
     setCarregando(true);
     try {
       if (!filtros.periodo) { limparDados(); return; }
       const [dataInicial, dataFinal] = filtros.periodo.split('_');
 
-      // 1. Buscar Navios com dados de produção
+      // Buscar Navios com dados de produção
       const { data: todosNavios, error: errorNavios } = await supabase
         .from('navios')
         .select(`
@@ -468,7 +463,6 @@ const Visuais = () => {
           quantidade_total: navio.quantidade_prevista || 0
         });
 
-        // Calcular produção total do navio no período
         if (navio.registros_producao && navio.registros_producao.length > 0) {
           const producaoFiltrada = navio.registros_producao.filter((reg: any) => {
             return reg.data >= dataInicial && reg.data <= dataFinal;
@@ -487,7 +481,6 @@ const Visuais = () => {
         }
       });
 
-      // 2. Buscar Operações
       const allOperacoes = await buscarComPaginacao(
         supabase.from('registro_operacoes')
           .select('id, op, data, navio_id, carga, centro_resultado')
@@ -497,7 +490,6 @@ const Visuais = () => {
 
       if (allOperacoes.length === 0) { limparDados(); return; }
 
-      // 3. Buscar Equipamentos
       let queryEquipamentos = supabase
         .from('equipamentos')
         .select('local, horas_trabalhadas, registro_operacoes_id, tag_generico, tag, categoria_nome')
@@ -506,7 +498,7 @@ const Visuais = () => {
       if (filtros.local !== 'todos') queryEquipamentos = queryEquipamentos.eq('local', filtros.local);
       const allEquipamentos = await buscarComPaginacao(queryEquipamentos);
 
-      processarDadosParaVistas(allEquipamentos, allOperacoes, naviosMap, producaoPorNavio, dataInicial, dataFinal);
+      processarDadosParaVistas(allEquipamentos, allOperacoes, naviosMap, producaoPorNavio);
 
     } catch (error: any) {
       console.error('Erro ao processar dados:', error);
@@ -537,9 +529,10 @@ const Visuais = () => {
     setDadosGeral({ locais: [], tags: [], categorias: [] });
     setDadosNavio({ 
       navios: [], 
-      detalhesNavios: {}, 
-      categoriasNavios: {},
-      totaisPeriodo: { tons_produzidos: 0, quantidade_prevista: 0, percentual_geral: 0 }
+      totaisPeriodo: { tons_produzidos: 0, quantidade_prevista: 0, percentual_geral: 0 },
+      horasPorNavio: [],
+      producaoPeriodo: [],
+      cargasToneladas: []
     });
     setDadosAlbras({ tags: [], categorias: [] });
     setDadosSantosBrasil({ tags: [], categorias: [] });
@@ -548,8 +541,7 @@ const Visuais = () => {
     setTotais({ horas: 0, quantidade: 0 });
   };
 
-  // Processamento de Dados (Adaptado para incluir produção)
-  const processarDadosParaVistas = (equipamentos: any[], operacoes: any[], naviosMap: Map<any, any>, producaoPorNavio: Record<string, { total_tons: number; registros: any[] }>, dataInicial: string, dataFinal: string) => {
+  const processarDadosParaVistas = (equipamentos: any[], operacoes: any[], naviosMap: Map<any, any>, producaoPorNavio: Record<string, { total_tons: number; registros: any[] }>) => {
     const operacoesMap = new Map();
     operacoes.forEach(op => {
       let nome_navio = 'NÃO INFORMADO';
@@ -623,7 +615,8 @@ const Visuais = () => {
     const dadosTags = Object.entries(agrupadoPorTag)
       .map(([tag_generico, dados]) => ({
         tag_generico: tag_generico === '' ? 'OUTROS' : tag_generico,
-        horas: parseFloat(dados.horas.toFixed(1)), quantidade: dados.quantidade
+        horas: parseFloat(dados.horas.toFixed(1)), 
+        quantidade: dados.quantidade
       }))
       .sort((a, b) => b.horas - a.horas);
 
@@ -637,7 +630,9 @@ const Visuais = () => {
 
     const dadosCategorias = Object.entries(agrupadoPorCategoria)
       .map(([categoria_nome, dados]) => ({
-        categoria_nome, horas: parseFloat(dados.horas.toFixed(1)), quantidade: dados.quantidade
+        categoria_nome, 
+        horas: parseFloat(dados.horas.toFixed(1)), 
+        quantidade: dados.quantidade
       }))
       .sort((a, b) => b.horas - a.horas);
 
@@ -646,11 +641,11 @@ const Visuais = () => {
 
   const processarDadosNavios = (equipamentos: any[], operacoesMap: Map<any, any>, producaoPorNavio: Record<string, { total_tons: number; registros: any[] }>) => {
     const agrupadoPorNavioCarga: Record<string, NavioCargaData> = {};
-    const detalhesPorNavioCarga: Record<string, Record<string, { horas: number; quantidade: number }>> = {};
     
     let totalTonsPeriodo = 0;
     let totalPrevistoPeriodo = 0;
 
+    // 1. Processar dados para a tabela de navios (agrupado por navio/carga)
     equipamentos.forEach(equipamento => {
       const operacao = operacoesMap.get(equipamento.registro_operacoes_id);
       if (operacao && operacao.navio_id && operacao.nome_navio !== 'NÃO INFORMADO') {
@@ -658,7 +653,6 @@ const Visuais = () => {
         const carga = operacao.carga;
         const quantidadeTotal = operacao.quantidade_total || 0;
         const tonsProduzidos = producaoPorNavio[operacao.navio_id]?.total_tons || 0;
-        const tagGenerico = equipamento.tag_generico || 'OUTROS';
         const chaveNavioCarga = `${nomeNavio} - ${carga}`;
         const idUnico = `${nomeNavio}_${carga}_${operacao.navio_id}`;
 
@@ -681,36 +675,87 @@ const Visuais = () => {
         
         agrupadoPorNavioCarga[idUnico].horas += Number(equipamento.horas_trabalhadas) || 0;
         agrupadoPorNavioCarga[idUnico].quantidade += 1;
-
-        if (!detalhesPorNavioCarga[chaveNavioCarga]) detalhesPorNavioCarga[chaveNavioCarga] = {};
-        if (!detalhesPorNavioCarga[chaveNavioCarga][tagGenerico]) detalhesPorNavioCarga[chaveNavioCarga][tagGenerico] = { horas: 0, quantidade: 0 };
-        detalhesPorNavioCarga[chaveNavioCarga][tagGenerico].horas += Number(equipamento.horas_trabalhadas) || 0;
-        detalhesPorNavioCarga[chaveNavioCarga][tagGenerico].quantidade += 1;
       }
     });
 
     const naviosArray = Object.values(agrupadoPorNavioCarga).sort((a, b) => b.horas - a.horas);
 
-    const detalhesArray: Record<string, TagGenericoData[]> = {};
-    Object.entries(detalhesPorNavioCarga).forEach(([navioCarga, tags]) => {
-      detalhesArray[navioCarga] = Object.entries(tags)
-        .map(([tag_generico, dados]) => ({
-          tag_generico: tag_generico === '' ? 'OUTROS' : tag_generico,
-          horas: parseFloat(dados.horas.toFixed(1)), 
-          quantidade: dados.quantidade
-        }))
-        .sort((a, b) => b.horas - a.horas);
+    // 2. Processar dados para os gráficos
+    const horasPorNavioMap: Record<string, { horas: number; quantidade: number }> = {};
+    const producaoPorDia: Record<string, { data: string; tons: number; apontamentos: number }> = {};
+    const cargasToneladasMap: Record<string, { tons: number; quantidade: number }> = {};
+
+    equipamentos.forEach(equipamento => {
+      const operacao = operacoesMap.get(equipamento.registro_operacoes_id);
+      if (operacao && operacao.navio_id && operacao.nome_navio !== 'NÃO INFORMADO') {
+        const nomeNavio = operacao.nome_navio;
+        const carga = operacao.carga;
+        const tonsProduzidos = producaoPorNavio[operacao.navio_id]?.total_tons || 0;
+        
+        // Horas por Navio (para gráfico)
+        if (!horasPorNavioMap[nomeNavio]) {
+          horasPorNavioMap[nomeNavio] = { horas: 0, quantidade: 0 };
+        }
+        horasPorNavioMap[nomeNavio].horas += Number(equipamento.horas_trabalhadas) || 0;
+        horasPorNavioMap[nomeNavio].quantidade += 1;
+
+        // Cargas e Toneladas (para gráfico)
+        if (carga !== 'NÃO INFORMADO') {
+          if (!cargasToneladasMap[carga]) {
+            cargasToneladasMap[carga] = { tons: 0, quantidade: 0 };
+          }
+          cargasToneladasMap[carga].tons = tonsProduzidos;
+          cargasToneladasMap[carga].quantidade += 1;
+        }
+      }
     });
 
+    // Processar produção por dia a partir dos registros de produção
+    Object.values(producaoPorNavio).forEach(navioData => {
+      navioData.registros.forEach(reg => {
+        if (!producaoPorDia[reg.data]) {
+          producaoPorDia[reg.data] = { data: reg.data, tons: 0, apontamentos: 0 };
+        }
+        producaoPorDia[reg.data].tons += Number(reg.tons_total) || 0;
+        producaoPorDia[reg.data].apontamentos += 1;
+      });
+    });
+
+    // Converter para arrays ordenados
+    const horasPorNavioArray = Object.entries(horasPorNavioMap)
+      .map(([nome_navio, dados]) => ({
+        tag_generico: nome_navio,
+        horas: parseFloat(dados.horas.toFixed(1)),
+        quantidade: dados.quantidade
+      }))
+      .sort((a, b) => b.horas - a.horas);
+
+    const producaoPeriodoArray = Object.values(producaoPorDia)
+      .map(item => ({
+        tag_generico: formatarDataBR(item.data),
+        horas: item.tons,
+        quantidade: item.apontamentos
+      }))
+      .sort((a, b) => a.tag_generico.localeCompare(b.tag_generico));
+
+    const cargasToneladasArray = Object.entries(cargasToneladasMap)
+      .map(([carga, dados]) => ({
+        categoria_nome: carga,
+        horas: dados.tons,
+        quantidade: dados.quantidade
+      }))
+      .sort((a, b) => b.horas - a.horas);
+
     setDadosNavio({ 
-      navios: naviosArray, 
-      detalhesNavios: detalhesArray, 
-      categoriasNavios: {},
+      navios: naviosArray,
       totaisPeriodo: { 
         tons_produzidos: totalTonsPeriodo, 
         quantidade_prevista: totalPrevistoPeriodo,
         percentual_geral: totalPrevistoPeriodo > 0 ? (totalTonsPeriodo / totalPrevistoPeriodo) * 100 : 0
-      }
+      },
+      horasPorNavio: horasPorNavioArray,
+      producaoPeriodo: producaoPeriodoArray,
+      cargasToneladas: cargasToneladasArray
     });
   };
 
@@ -861,12 +906,12 @@ const Visuais = () => {
         return (
           <div className="space-y-6">
             {/* Cards de Métricas de Produção */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card className="bg-gradient-to-br from-slate-900 to-slate-900/60 border-slate-800 shadow-xl">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
                     <div className="p-3 rounded-lg bg-purple-500/20 text-purple-400">
-                      <Anchor className="w-6 h-6" />
+                      <Ship className="w-6 h-6" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-slate-500">Navios no Período</p>
@@ -894,6 +939,20 @@ const Visuais = () => {
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
                     <div className="p-3 rounded-lg bg-blue-500/20 text-blue-400">
+                      <Clock className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-500">Total Horas</p>
+                      <p className="text-3xl font-bold text-white">{dadosNavio.navios.reduce((a,b) => a + b.horas, 0).toFixed(1)}h</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-slate-900 to-slate-900/60 border-slate-800 shadow-xl">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-amber-500/20 text-amber-400">
                       <BarChart3 className="w-6 h-6" />
                     </div>
                     <div>
@@ -905,13 +964,14 @@ const Visuais = () => {
               </Card>
             </div>
 
+            {/* TABELA DE NAVIOS - MANTIDA */}
             <Card className="bg-slate-900/40 border-slate-800 shadow-xl">
               <CardHeader className="bg-slate-800/30 border-b border-slate-800/50">
                 <div className="flex justify-between items-center">
                   <div>
                     <CardTitle className="text-slate-100 flex items-center gap-2">
                       <Ship className="w-5 h-5 text-purple-400" />
-                      Análise por Navio
+                      Viagens por Navio
                     </CardTitle>
                     <CardDescription className="text-slate-400">
                       Operações e produção no período selecionado
@@ -929,24 +989,34 @@ const Visuais = () => {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-6">
-                {carregando ? (
-                  <div className="p-8 text-center text-slate-500">Carregando navios...</div>
-                ) : dadosNavio.navios.length > 0 ? (
-                  <div className="overflow-x-auto rounded-lg border border-slate-700/50">
-                    <table className="w-full text-sm text-left text-slate-300">
-                      <thead className="text-xs text-slate-400 uppercase bg-slate-800/50">
+              <CardContent className="p-0 overflow-x-auto">
+                <div className="rounded-lg border border-slate-700/50 m-4">
+                  <table className="w-full text-sm text-left text-slate-300">
+                    <thead className="text-xs text-slate-400 uppercase bg-slate-800/50">
+                      <tr>
+                        <th className="px-6 py-4 font-medium">Navio / Carga</th>
+                        <th className="px-6 py-4 text-right font-medium">Horas</th>
+                        <th className="px-6 py-4 text-right font-medium">Apontamentos</th>
+                        <th className="px-6 py-4 text-right font-medium">Produção no Período (Tons)</th>
+                        <th className="px-6 py-4 text-right font-medium">Quantidade Total</th>
+                        <th className="px-6 py-4 text-right font-medium">% Realizado no Período</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800">
+                      {carregando ? (
                         <tr>
-                          <th className="px-6 py-4 font-medium">Navio / Carga</th>
-                          <th className="px-6 py-4 text-right font-medium">Horas</th>
-                          <th className="px-6 py-4 text-right font-medium">Apont.</th>
-                          <th className="px-6 py-4 text-right font-medium">Produção (Tons)</th>
-                          <th className="px-6 py-4 text-right font-medium">Previsto</th>
-                          <th className="px-6 py-4 text-right font-medium">% Cumprido</th>
+                          <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+                            Carregando dados...
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800">
-                        {dadosNavio.navios.map((navio) => (
+                      ) : dadosNavio.navios.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+                            Sem dados de navios no período
+                          </td>
+                        </tr>
+                      ) : (
+                        dadosNavio.navios.map((navio) => (
                           <tr key={navio.id} className="hover:bg-slate-800/30 transition-colors">
                             <td className="px-6 py-4 font-medium text-white">
                               <div className="flex items-center gap-2">
@@ -968,57 +1038,120 @@ const Visuais = () => {
                               </span>
                             </td>
                           </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-slate-800/40 border-t border-slate-700">
-                        <tr>
-                          <td className="px-6 py-4 font-bold text-white">TOTAL DO PERÍODO</td>
-                          <td className="px-6 py-4 text-right font-bold text-blue-300">
-                            {dadosNavio.navios.reduce((a,b) => a + b.horas, 0).toFixed(1)}h
-                          </td>
-                          <td className="px-6 py-4 text-right font-bold text-slate-300">
-                            {dadosNavio.navios.reduce((a,b) => a + b.quantidade, 0)}
-                          </td>
-                          <td className="px-6 py-4 text-right font-bold text-emerald-400">
-                            {dadosNavio.totaisPeriodo.tons_produzidos.toFixed(2)}
-                          </td>
-                          <td className="px-6 py-4 text-right font-bold text-slate-300">
-                            {dadosNavio.totaisPeriodo.quantidade_prevista.toFixed(2)}
-                          </td>
-                          <td className="px-6 py-4 text-right font-bold">
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                              dadosNavio.totaisPeriodo.percentual_geral >= 90 ? 'bg-green-500/20 text-green-400' :
-                              dadosNavio.totaisPeriodo.percentual_geral >= 70 ? 'bg-yellow-500/20 text-yellow-400' :
-                              'bg-red-500/20 text-red-400'
-                            }`}>
-                              {dadosNavio.totaisPeriodo.percentual_geral.toFixed(1)}%
-                            </span>
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
+                        ))
+                      )}
+                    </tbody>
+                    <tfoot className="bg-slate-800/40 border-t border-slate-700">
+                      <tr>
+                        <td className="px-6 py-4 font-bold text-white">TOTAL DO PERÍODO</td>
+                        <td className="px-6 py-4 text-right font-bold text-blue-300">
+                          {dadosNavio.navios.reduce((a,b) => a + b.horas, 0).toFixed(1)}h
+                        </td>
+                        <td className="px-6 py-4 text-right font-bold text-slate-300">
+                          {dadosNavio.navios.reduce((a,b) => a + b.quantidade, 0)}
+                        </td>
+                        <td className="px-6 py-4 text-right font-bold text-emerald-400">
+                          {dadosNavio.totaisPeriodo.tons_produzidos.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 text-right font-bold text-slate-300">
+                          {dadosNavio.totaisPeriodo.quantidade_prevista.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 text-right font-bold">
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            dadosNavio.totaisPeriodo.percentual_geral >= 90 ? 'bg-green-500/20 text-green-400' :
+                            dadosNavio.totaisPeriodo.percentual_geral >= 70 ? 'bg-yellow-500/20 text-yellow-400' :
+                            'bg-red-500/20 text-red-400'
+                          }`}>
+                            {dadosNavio.totaisPeriodo.percentual_geral.toFixed(1)}%
+                          </span>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* GRÁFICOS ADICIONAIS - MANTIDOS */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Gráfico 1: Horas por Navio */}
+              <Card className="bg-slate-900/40 border-slate-800 shadow-xl h-[450px]">
+                <CardHeader className="bg-slate-800/30 border-b border-slate-800/50 pb-3">
+                  <CardTitle className="text-slate-100 text-lg flex items-center gap-2">
+                    <Ship className="w-4 h-4 text-purple-400" />
+                    Horas por Navio
+                  </CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Distribuição de horas de operação
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-4 h-[calc(100%-100px)]">
+                  {dadosNavio.horasPorNavio.length > 0 ? (
+                    <GraficoBarrasVertical 
+                      dados={dadosNavio.horasPorNavio} 
+                      titulo="" 
+                      dataKey="horas" 
+                      nameKey="tag_generico"
+                      cor="#8B5CF6"
+                    />
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-slate-500">Sem dados</div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Gráfico 2: Produção por Dia */}
+              <Card className="bg-slate-900/40 border-slate-800 shadow-xl h-[450px]">
+                <CardHeader className="bg-slate-800/30 border-b border-slate-800/50 pb-3">
+                  <CardTitle className="text-slate-100 text-lg flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-emerald-400" />
+                    Produção por Dia (Toneladas)
+                  </CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Evolução da produção no período
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-4 h-[calc(100%-100px)]">
+                  {dadosNavio.producaoPeriodo.length > 0 ? (
+                    <GraficoBarrasVertical 
+                      dados={dadosNavio.producaoPeriodo} 
+                      titulo="" 
+                      dataKey="horas" 
+                      nameKey="tag_generico"
+                      cor="#10B981"
+                    />
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-slate-500">Sem dados</div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Gráfico 3: Produção por Tipo de Carga (Linha inteira) */}
+            <Card className="bg-slate-900/40 border-slate-800 shadow-xl h-[450px]">
+              <CardHeader className="bg-slate-800/30 border-b border-slate-800/50 pb-3">
+                <CardTitle className="text-slate-100 text-lg flex items-center gap-2">
+                  <Package className="w-4 h-4 text-blue-400" />
+                  Produção por Tipo de Carga (Toneladas)
+                </CardTitle>
+                <CardDescription className="text-slate-400">
+                  Total produzido por cada tipo de carga
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4 h-[calc(100%-100px)]">
+                {dadosNavio.cargasToneladas.length > 0 ? (
+                  <GraficoBarrasVertical 
+                    dados={dadosNavio.cargasToneladas} 
+                    titulo="" 
+                    dataKey="horas" 
+                    nameKey="categoria_nome"
+                    cor="#3B82F6"
+                  />
                 ) : (
-                  <div className="p-8 text-center text-slate-500">Sem dados de navios no período</div>
+                  <div className="h-full flex items-center justify-center text-slate-500">Sem dados</div>
                 )}
               </CardContent>
             </Card>
-            
-            <div className="space-y-6">
-              {Object.entries(dadosNavio.detalhesNavios).slice(0, 3).map(([navioCarga, tags]) => (
-                <Card key={navioCarga} className="bg-slate-900/40 border-slate-800 shadow-xl h-[400px]">
-                  <CardHeader className="bg-slate-800/30 border-b border-slate-800/50 pb-2">
-                    <CardTitle className="text-slate-200 text-base truncate flex items-center gap-2">
-                      <Ship className="w-4 h-4 text-purple-400" />
-                      {navioCarga} - Detalhamento
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-4 h-[calc(100%-60px)]">
-                    <GraficoBarrasVertical dados={tags} titulo="" dataKey="horas" nameKey="tag_generico" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
           </div>
         );
 
@@ -1032,7 +1165,7 @@ const Visuais = () => {
                </CardTitle>
              </CardHeader>
              <CardContent className="pt-6 h-[calc(100%-80px)]">
-                <GraficoBarrasVertical dados={dadosHydro.tags} titulo="" dataKey="horas" nameKey="tag_generico" />
+                <GraficoBarrasVertical dados={dadosHydro.tags} titulo="" dataKey="horas" nameKey="tag_generico" cor="#06B6D4" />
              </CardContent>
           </Card>
         );
@@ -1047,7 +1180,7 @@ const Visuais = () => {
                </CardTitle>
              </CardHeader>
              <CardContent className="pt-6 h-[calc(100%-80px)]">
-                <GraficoBarrasVertical dados={dadosAlbras.tags} titulo="" dataKey="horas" nameKey="tag_generico" />
+                <GraficoBarrasVertical dados={dadosAlbras.tags} titulo="" dataKey="horas" nameKey="tag_generico" cor="#F59E0B" />
              </CardContent>
            </Card>
         );
@@ -1062,7 +1195,7 @@ const Visuais = () => {
                </CardTitle>
              </CardHeader>
              <CardContent className="pt-6 h-[calc(100%-80px)]">
-                <GraficoBarrasVertical dados={dadosSantosBrasil.tags} titulo="" dataKey="horas" nameKey="tag_generico" />
+                <GraficoBarrasVertical dados={dadosSantosBrasil.tags} titulo="" dataKey="horas" nameKey="tag_generico" cor="#EF4444" />
              </CardContent>
            </Card>
         );

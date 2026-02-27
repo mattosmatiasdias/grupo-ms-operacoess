@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { 
   Menu, X, LogOut, Bell, Ship, Calendar, Package, Anchor, 
-  BarChart3, Plus, Pencil, ArrowLeft, Loader2, Home, Activity
+  BarChart3, Plus, Pencil, ArrowLeft, Loader2, Home, Activity,
+  Search, Filter, XCircle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -33,7 +35,13 @@ const Navios = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viagens, setViagens] = useState<Viagem[]>([]);
+  const [filteredViagens, setFilteredViagens] = useState<Viagem[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Estados para os filtros
+  const [filtroNome, setFiltroNome] = useState('');
+  const [filtroCarga, setFiltroCarga] = useState('');
+  const [cargasUnicas, setCargasUnicas] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchViagens = async () => {
@@ -43,11 +51,44 @@ const Navios = () => {
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (!error) setViagens(data || []);
+      if (!error && data) {
+        setViagens(data);
+        setFilteredViagens(data);
+        
+        // Extrair cargas únicas para o filtro
+        const cargas = data
+          .map(v => v.carga)
+          .filter((carga): carga is string => carga !== null && carga !== '')
+          .filter((value, index, self) => self.indexOf(value) === index)
+          .sort();
+        setCargasUnicas(cargas);
+      }
       setLoading(false);
     };
     fetchViagens();
   }, []);
+
+  // Efeito para aplicar os filtros
+  useEffect(() => {
+    let filtered = [...viagens];
+    
+    if (filtroNome) {
+      filtered = filtered.filter(v => 
+        v.nome_navio.toLowerCase().includes(filtroNome.toLowerCase())
+      );
+    }
+    
+    if (filtroCarga) {
+      filtered = filtered.filter(v => v.carga === filtroCarga);
+    }
+    
+    setFilteredViagens(filtered);
+  }, [filtroNome, filtroCarga, viagens]);
+
+  const limparFiltros = () => {
+    setFiltroNome('');
+    setFiltroCarga('');
+  };
 
   const formatDate = (dateString: string | null) => 
     dateString ? new Date(dateString).toLocaleDateString('pt-BR') : 'N/A';
@@ -83,29 +124,29 @@ const Navios = () => {
   const statsData = [
     { 
       label: 'Total Viagens', 
-      value: viagens.length, 
+      value: filteredViagens.length, 
       icon: Ship, 
       color: 'text-blue-400', 
       bg: 'bg-blue-500/10' 
     },
     { 
       label: 'Em Andamento', 
-      value: viagens.filter(v => !v.concluido).length, 
+      value: filteredViagens.filter(v => !v.concluido).length, 
       icon: Activity, 
       color: 'text-green-400', 
       bg: 'bg-green-500/10' 
     },
     { 
       label: 'Concluídas', 
-      value: viagens.filter(v => v.concluido).length, 
+      value: filteredViagens.filter(v => v.concluido).length, 
       icon: Package, 
       color: 'text-slate-400', 
       bg: 'bg-slate-700/20' 
     },
     { 
       label: 'Média CBs', 
-      value: viagens.length > 0 
-        ? Math.round(viagens.reduce((acc, v) => acc + (v.media_cb || 0), 0) / viagens.length)
+      value: filteredViagens.length > 0 
+        ? Math.round(filteredViagens.reduce((acc, v) => acc + (v.media_cb || 0), 0) / filteredViagens.length)
         : 0,
       icon: BarChart3, 
       color: 'text-amber-400', 
@@ -186,10 +227,10 @@ const Navios = () => {
               <p className="text-xs text-slate-400">Sistema de monitoramento de viagens e cargas</p>
             </div>
             <div className="flex items-center gap-3">
-               <Button onClick={() => navigate('/novo-navio')} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-900/20 h-9 px-4">
-                 <Plus className="h-4 w-4 mr-2" />
-                 <span className="text-sm">Novo Navio</span>
-               </Button>
+              <Button onClick={() => navigate('/novo-navio')} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-900/20 h-9 px-4">
+                <Plus className="h-4 w-4 mr-2" />
+                <span className="text-sm">Novo Navio</span>
+              </Button>
             </div>
           </div>
 
@@ -211,6 +252,59 @@ const Navios = () => {
               ))}
             </div>
 
+            {/* Filtros */}
+            <Card className="bg-slate-900/40 border-slate-800">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-slate-400" />
+                    <span className="text-sm text-slate-300">Filtros:</span>
+                  </div>
+                  
+                  <div className="flex-1 min-w-[200px]">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
+                      <Input
+                        placeholder="Filtrar por nome do navio..."
+                        value={filtroNome}
+                        onChange={(e) => setFiltroNome(e.target.value)}
+                        className="pl-9 bg-slate-950 border-slate-700 text-slate-200 placeholder:text-slate-500 focus-visible:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="w-48">
+                    <select
+                      value={filtroCarga}
+                      onChange={(e) => setFiltroCarga(e.target.value)}
+                      className="w-full h-10 px-3 rounded-md bg-slate-950 border border-slate-700 text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Todas as cargas</option>
+                      {cargasUnicas.map((carga) => (
+                        <option key={carga} value={carga}>{carga}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {(filtroNome || filtroCarga) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={limparFiltros}
+                      className="text-slate-400 hover:text-white hover:bg-slate-800"
+                    >
+                      <XCircle className="h-4 w-4 mr-1" />
+                      Limpar filtros
+                    </Button>
+                  )}
+
+                  <div className="text-sm text-slate-400 ml-auto">
+                    {filteredViagens.length} {filteredViagens.length === 1 ? 'resultado' : 'resultados'}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Table Card */}
             <Card className="bg-slate-900/40 border-slate-800 shadow-sm flex flex-col">
               <CardHeader className="bg-slate-800/30 border-b border-slate-800/50 p-4 flex flex-row items-center justify-between">
@@ -219,7 +313,7 @@ const Navios = () => {
                   <CardTitle className="text-slate-100 text-base font-medium">Viagens Registradas</CardTitle>
                 </div>
                 <Badge variant="outline" className="bg-slate-950 border-slate-700 text-slate-400 text-xs px-2 py-0.5">
-                  {viagens.length} Total
+                  {filteredViagens.length} de {viagens.length} Total
                 </Badge>
               </CardHeader>
               <CardContent className="p-0 overflow-x-auto">
@@ -245,7 +339,7 @@ const Navios = () => {
                           <p className="text-sm">Carregando dados...</p>
                         </TableCell>
                       </TableRow>
-                    ) : viagens.length === 0 ? (
+                    ) : filteredViagens.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={9} className="text-center py-16 text-slate-500">
                           <div className="flex flex-col items-center justify-center space-y-3">
@@ -253,17 +347,29 @@ const Navios = () => {
                               <Ship className="h-6 w-6 text-slate-400" />
                             </div>
                             <div className="space-y-1">
-                              <p className="text-sm font-medium text-slate-300">Nenhuma viagem registrada</p>
-                              <p className="text-xs text-slate-500">Inicie o cadastro para começar</p>
+                              <p className="text-sm font-medium text-slate-300">
+                                {viagens.length === 0 ? 'Nenhuma viagem registrada' : 'Nenhum resultado encontrado'}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {viagens.length === 0 
+                                  ? 'Inicie o cadastro para começar' 
+                                  : 'Tente ajustar os filtros para ver mais resultados'}
+                              </p>
                             </div>
-                            <Button onClick={() => navigate('/novo-navio')} variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:bg-slate-800">
-                              <Plus className="h-3 w-3 mr-1" /> Cadastrar Viagem
-                            </Button>
+                            {viagens.length === 0 ? (
+                              <Button onClick={() => navigate('/novo-navio')} variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:bg-slate-800">
+                                <Plus className="h-3 w-3 mr-1" /> Cadastrar Viagem
+                              </Button>
+                            ) : (
+                              <Button onClick={limparFiltros} variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:bg-slate-800">
+                                <XCircle className="h-3 w-3 mr-1" /> Limpar filtros
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
                     ) : (
-                      viagens.map((viagem) => {
+                      filteredViagens.map((viagem) => {
                         const diasOperacao = calcularDiasOperacao(viagem.inicio_operacao, viagem.final_operacao);
                         
                         return (
@@ -411,11 +517,50 @@ const Navios = () => {
               ))}
            </div>
 
-           {/* Mobile Table Card (Scrollable) */}
+           {/* Mobile Filters */}
+           <div className="space-y-3">
+             <div className="relative">
+               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
+               <Input
+                 placeholder="Buscar navio..."
+                 value={filtroNome}
+                 onChange={(e) => setFiltroNome(e.target.value)}
+                 className="pl-9 bg-slate-900 border-slate-700 text-slate-200 placeholder:text-slate-500"
+               />
+             </div>
+             
+             <div className="flex gap-2">
+               <select
+                 value={filtroCarga}
+                 onChange={(e) => setFiltroCarga(e.target.value)}
+                 className="flex-1 h-10 px-3 rounded-md bg-slate-900 border border-slate-700 text-slate-200 text-sm"
+               >
+                 <option value="">Todas cargas</option>
+                 {cargasUnicas.map((carga) => (
+                   <option key={carga} value={carga}>{carga}</option>
+                 ))}
+               </select>
+               
+               {(filtroNome || filtroCarga) && (
+                 <Button
+                   variant="outline"
+                   size="icon"
+                   onClick={limparFiltros}
+                   className="border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800"
+                 >
+                   <XCircle className="h-4 w-4" />
+                 </Button>
+               )}
+             </div>
+           </div>
+
+           {/* Mobile Table Card */}
            <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-lg">
               <div className="p-3 border-b border-slate-800 bg-slate-800/30 flex justify-between items-center">
                  <span className="text-sm font-semibold text-white">Viagens</span>
-                 <span className="text-xs text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">{viagens.length}</span>
+                 <span className="text-xs text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                   {filteredViagens.length} de {viagens.length}
+                 </span>
               </div>
               <div className="overflow-x-auto">
                 <Table>
@@ -434,19 +579,21 @@ const Navios = () => {
                            <p className="text-[10px]">Carregando...</p>
                          </TableCell>
                        </TableRow>
-                    ) : viagens.length === 0 ? (
+                    ) : filteredViagens.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={3} className="py-8 text-center text-slate-500">
-                          <p className="text-xs">Nenhum registro</p>
+                          <p className="text-xs">
+                            {viagens.length === 0 ? 'Nenhum registro' : 'Nenhum resultado'}
+                          </p>
                         </TableCell>
                       </TableRow>
                     ) : (
-                      viagens.map((viagem) => (
+                      filteredViagens.map((viagem) => (
                         <TableRow key={viagem.id} className="hover:bg-slate-800/30 border-slate-800">
                           <TableCell className="py-3 pl-3">
                             <div className="flex flex-col">
                               <span className="text-xs font-medium text-white truncate max-w-[120px]">{viagem.nome_navio}</span>
-                              <span className="text-[10px] text-slate-500 font-mono">{formatDate(viagem.inicio_operacao)}</span>
+                              <span className="text-[10px] text-slate-500">{viagem.carga || 'Sem carga'}</span>
                             </div>
                           </TableCell>
                           <TableCell className="py-3">
